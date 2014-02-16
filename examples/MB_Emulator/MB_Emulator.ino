@@ -23,6 +23,7 @@
 //     http://www.meinbergglobal.com/english/info/ntp.htm#cfg
 //     http://www.meinbergglobal.com/download/ntp/docs/ntp_cheat_sheet.pdf
 //     http://www.meinberg.de/german/specs/timestr.htm
+//     http://www.eecis.udel.edu/~mills/ntp/html/parsedata.html
 
 #include <dcf77.h>
 
@@ -30,6 +31,7 @@ const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = A5;  // A5 == d19
 const uint8_t dcf77_inverted_samples = 1;
 const uint8_t dcf77_analog_samples = 1;
+const uint8_t dcf77_signal_good_indicator_pin = 13;
 
 const uint8_t dcf77_monitor_pin = A4;  // A4 == d18
 
@@ -43,11 +45,28 @@ uint8_t sample_input_pin() {
     return sampled_data;
 }
 
+void workaround_to_enable_7e2_serial_communication() {
+    // At this time my clock will only compile successfully with Arduino 1.0.
+    // Attention: it seems to compiler with higher versions but the result
+    // does not process correctly.
+
+    // NTPD wants serial transmission mode 7E2 for the Meinberg setup.
+    // Unfortunatly this  is only available with Arduino 1.0.1 or higher.
+    // My current workaround is to overwrite the Control and Status
+    // register after initializing serial communication.
+    
+    // So instead of an upgrade to a higher Arduino version the line
+    // below has to suffice.
+    UCSR0C = 0x2C;
+}
+
+
 void setup() {
     using namespace DCF77_Encoder;
 
-    //Serial.begin(9600, SERIAL_7N2);
     Serial.begin(9600);
+    workaround_to_enable_7e2_serial_communication();
+    //Serial.begin(115200);
     Serial.println();
     Serial.println(F("Meinberg Emulator"));
     Serial.println(F("(c) Udo Klein 2014"));
@@ -57,6 +76,7 @@ void setup() {
     Serial.print(F("Inverted Mode: ")); Serial.println(dcf77_inverted_samples);
     Serial.print(F("Analog Mode:   ")); Serial.println(dcf77_analog_samples);
     Serial.print(F("Monitor Pin:   ")); Serial.println(dcf77_monitor_pin);
+    Serial.print(F("Signal Good Indicator Pin:")); Serial.println(dcf77_signal_good_indicator_pin);
     Serial.println();
     Serial.println();
     Serial.println(F("Initializing..."));
@@ -66,6 +86,9 @@ void setup() {
 
     pinMode(dcf77_sample_pin, INPUT);
     digitalWrite(dcf77_sample_pin, HIGH);
+
+    pinMode(dcf77_signal_good_indicator_pin, OUTPUT);
+    digitalWrite(dcf77_signal_good_indicator_pin, LOW);
 
     DCF77_Clock::setup();
     DCF77_Clock::set_input_provider(sample_input_pin);
@@ -118,6 +141,8 @@ void loop() {
             state == DCF77::synced || state == DCF77::locked? ' '  // DCF77
                                                             : '*'  // crystal clock
         );
+
+        digitalWrite(dcf77_signal_good_indicator_pin, state >= DCF77::locked);
 
         Serial.print(now.uses_summertime? 'S': ' ');
         Serial.print(
