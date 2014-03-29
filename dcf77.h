@@ -131,16 +131,6 @@ namespace Hamming {
     } lock_quality_t;
 }
 
-typedef union {
-    struct {
-        uint8_t b0:2;
-        uint8_t b1:2;
-        uint8_t b2:2;
-        uint8_t b3:2;
-    } signal;
-    uint8_t byte;
-} tData;
-
 namespace DCF77 {
     typedef enum {
         long_tick  = 3,
