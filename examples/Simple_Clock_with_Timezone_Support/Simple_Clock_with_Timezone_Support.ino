@@ -148,6 +148,7 @@ void setup() {
             Serial.println();
         }
     }
+    Serial.println();
 }
 
 void paddedPrint(BCD::bcd_t n) {
