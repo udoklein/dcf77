@@ -2723,34 +2723,74 @@ namespace DCF77_1_Khz_Generator {
     uint8_t zero_provider() {
         return 0;
     }
-
+    
     static DCF77_Clock::input_provider_t the_input_provider = zero_provider;
+    static int16_t adjust_pp16m = 0;
+    static int32_t cumulated_drift = 0;
+    
+    void adjust(const int16_t pp16m) {
+        const uint8_t prev_SREG = SREG;
+        cli();
+        // positive_value --> increase frequency
+        adjust_pp16m = pp16m;
+        SREG = prev_SREG;
+    }
 
+    int16_t read_adjustment() {
+        // positive_value --> increase frequency
+        const uint8_t prev_SREG = SREG;
+        cli();
+        const int16_t pp16m = adjust_pp16m;
+        SREG = prev_SREG;
+        return pp16m;
+    }
+    
     void init_timer_2() {
         // Timer 2 CTC mode, prescaler 64
         TCCR2B = (1<<WGM22) | (1<<CS22);
         TCCR2A = (1<<WGM21);
-
+        
         // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
         OCR2A = 249;
-
+        
         // enable Timer 2 interrupts
         TIMSK2 = (1<<OCIE2A);
     }
-
+    
     void stop_timer_0() {
         // ensure that the standard timer interrupts will not
         // mess with msTimer2
         TIMSK0 = 0;
     }
-
+    
     void setup(const DCF77_Clock::input_provider_t input_provider) {
         init_timer_2();
         stop_timer_0();
         the_input_provider = input_provider;
     }
+    
+    void isr_handler() {
+        cumulated_drift += adjust_pp16m;
+        // 1 / 250 / 64000 = 1 / 16 000 000
+        if (cumulated_drift >= 64000) {
+            cumulated_drift -= 64000;
+            // cumulated drift exceeds 1 timer step (4 microseconds)
+            // drop one timer step to realign
+            OCR2A = 248;
+        } else
+            if (cumulated_drift <= -64000) {
+                // cumulated drift exceeds 1 timer step (4 microseconds)
+                // insert one timer step to realign
+                cumulated_drift += 64000;
+                OCR2A = 250;
+            } else {
+                // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
+                OCR2A = 249;
+            }
+            DCF77_Clock_Controller::process_1_kHz_tick_data(the_input_provider());
+    }
 }
 
 ISR(TIMER2_COMPA_vect) {
-    DCF77_Clock_Controller::process_1_kHz_tick_data(DCF77_1_Khz_Generator::the_input_provider());
+    DCF77_1_Khz_Generator::isr_handler();
 }

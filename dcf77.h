@@ -115,8 +115,12 @@ namespace DCF77_Clock {
 namespace DCF77_1_Khz_Generator {
     void setup(const DCF77_Clock::input_provider_t input_provider);
     uint8_t zero_provider();
+    // positive_value --> increase frequency
+    // pp16m = parts per 16 million = 1 Hz @ 16 Mhz
+    void adjust(const int16_t pp16m);
+    int16_t read_adjustment();
+    void isr_handler();
 }
-
 
 namespace Debug {
     void debug_helper(char data);
@@ -417,7 +421,6 @@ namespace DCF77_Local_Clock {
     void setup();
     void process_1_Hz_tick(const DCF77::time_data_t &decoded_time);
     void process_1_kHz_tick();
-    void get_quality();
     void debug();
 
     clock_state_t get_state();
