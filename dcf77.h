@@ -122,6 +122,42 @@ namespace DCF77_1_Khz_Generator {
     void isr_handler();
 }
 
+namespace DCF77_Drift_Control {
+    // tau_max = 160 000 seconds ~ almost 2 days
+    const uint32_t tau_max = 16000000;
+    
+    //// tau_min = 625 seconds ~ 10 minutes --> to short in the presence of significant noise
+    //const uint32_t tau_min = tau_max >> 8;
+    
+    // tau_min = 2500 seconds ~ 40 minutes --> OK even in noisy environments
+    const uint32_t tau_min = tau_max >> 6;
+    
+    
+    // adjust step =   1 Hz = 1/16 ppm
+    const int16_t adjust_steps_at_tau_max = 1;
+    
+    //// adjust step = 256 Hz = 16 ppm --> to coarse in the presence of significant noise
+    //const int16_t adjust_steps_at_tau_min = adjust_steps_at_tau_max << 8;
+    
+    // adjust_step =  64 Hz = 4 ppm
+    const int16_t adjust_steps_at_tau_min = adjust_steps_at_tau_max << 6;
+    
+    // 1600 Hz = 100 ppm
+    const int16_t max_total_adjust = 1600;
+
+    void restart_measurement();
+    void debug();
+    bool increase_tau();
+    bool decrease_tau();
+    void adjust();
+    void process_1_Hz_tick();
+    void process_1_kHz_tick();
+    void start_calibration();
+    void cancel_calibration();
+    void setup();
+}
+
+
 namespace Debug {
     void debug_helper(char data);
     void bcddigit(uint8_t data);
@@ -487,6 +523,7 @@ namespace DCF77_Clock_Controller {
 
     void phase_lost_event_handler();
     void sync_lost_event_handler();
+    void sync_achieved_event_handler();
 
     // blocking, will unblock at the start of the second
     void get_current_time(DCF77::time_data_t &now);

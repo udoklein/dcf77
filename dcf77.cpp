@@ -15,11 +15,8 @@
 //
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see http://www.gnu.org/licenses/
-#include <dcf77.h>
 
-// test unlocked / locked transitions
-// test free handling
-// once the clock is locked advancing the stages could be done by the local clock
+#include <dcf77.h>
 
 namespace Debug {
     void debug_helper(char data) { Serial.print(data == 0? 'S': data == 1? '?': data - 2 + '0', 0); }
@@ -1161,7 +1158,6 @@ namespace DCF77_Decade_Decoder {
     }
 }
 
-
 namespace DCF77_Year_Decoder {
     const uint8_t years_per_century = 10;
 
@@ -1821,7 +1817,6 @@ namespace DCF77_Second_Decoder {
 }
 
 namespace DCF77_Local_Clock {
-
     clock_state_t clock_state = useless;
     DCF77::output_handler_t output_handler = 0;
     DCF77::time_data_t local_clock_time;
@@ -1854,7 +1849,10 @@ namespace DCF77_Local_Clock {
         uint8_t quality_factor = DCF77_Clock_Controller::get_overall_quality_factor();
 
         if (quality_factor > 1) {
-            clock_state = synced;
+            if (clock_state != synced) {
+                DCF77_Clock_Controller::sync_achieved_event_handler();
+                clock_state = synced;
+            }
         } else if (clock_state == synced) {
             DCF77_Clock_Controller::sync_lost_event_handler();
             clock_state = locked;
@@ -2112,6 +2110,11 @@ namespace DCF77_Clock_Controller {
 
         // It ensures that the local clock is decoupled
         // from things like "output handling".
+
+        // drift control must be handled before output handling, otherwise
+        // output handling might introduce undesirable jitter to drift control
+        DCF77_Drift_Control::process_1_Hz_tick();
+
         if (output_handler) {
             DCF77_Clock::time_t time;
 
@@ -2138,6 +2141,7 @@ namespace DCF77_Clock_Controller {
     void process_1_kHz_tick_data(const uint8_t sampled_data) {
         DCF77_Demodulator::detector(sampled_data);
         DCF77_Local_Clock::process_1_kHz_tick();
+        DCF77_Drift_Control::process_1_kHz_tick();
     }
 
     void set_output_handler(const DCF77_Clock::output_handler_t new_output_handler) {
@@ -2303,6 +2307,8 @@ namespace DCF77_Clock_Controller {
     }
 
     void phase_lost_event_handler() {
+        // do not reset drift control as a reset would also reset
+        // the current value for the measurement period length
         DCF77_Second_Decoder::setup();
         DCF77_Minute_Decoder::setup();
         DCF77_Hour_Decoder::setup();
@@ -2312,10 +2318,21 @@ namespace DCF77_Clock_Controller {
         DCF77_Year_Decoder::setup();
     }
 
+    void sync_achieved_event_handler() {
+        // It can be argued if phase events instead of sync events
+        // should be used. In theory it would be sufficient to have a
+        // reasonable phase at the start and end of a calibration measurement
+        // interval.
+        // On the other hand a clean signal will provide a better calibration.
+        // Since it is sufficient if the calibration happens only once in a
+        // while we are satisfied with hooking at the sync events.
+        DCF77_Drift_Control::start_calibration();
+    }
+    
     void sync_lost_event_handler() {
-        bool reset_successors = false;
-
-        reset_successors = (DCF77_Demodulator::get_quality_factor() == 0);
+        DCF77_Drift_Control::cancel_calibration();
+        
+        bool reset_successors = (DCF77_Demodulator::get_quality_factor() == 0);
         if (reset_successors) {
             DCF77_Second_Decoder::setup();
         }
@@ -2350,6 +2367,7 @@ namespace DCF77_Clock_Controller {
     void setup() {
         DCF77_Demodulator::setup();
         phase_lost_event_handler();
+        DCF77_Drift_Control::setup();
     }
 
     void process_single_tick_data(const DCF77::tick_t tick_data) {
@@ -2523,7 +2541,7 @@ namespace DCF77_Demodulator {
     uint8_t phase_binning(const uint8_t input) {
         // how many seconds may be cummulated
         // this controls how slow the filter may be to follow a phase drift
-        // N times the clock precision shall be smaller 1
+        // N times the clock precision shall be smaller 1/100
         // clock 30 ppm => N < 300
         const uint16_t N = 300;
 
@@ -2717,6 +2735,148 @@ namespace DCF77_Clock {
     uint8_t get_prediction_match() {
         return DCF77_Clock_Controller::get_prediction_match();
     };
+}
+
+namespace DCF77_Drift_Control {
+    // tau = length of measurement period in ticks (@ 100 Hz)
+    volatile uint32_t tau = tau_min;
+    volatile int16_t  adjust_steps = adjust_steps_at_tau_min;
+
+    volatile uint32_t elapsed;
+    volatile int16_t tick;
+    volatile int16_t start_tick;
+    
+    volatile int16_t deviation = 0;
+    
+    void restart_measurement() {
+        start_tick = tick;
+        elapsed = 0;
+    }
+
+    bool calibration_running = false;
+    void start_calibration() {
+        calibration_running = true;
+        restart_measurement();
+    }
+    
+    void cancel_calibration() {
+        calibration_running = false;
+    }
+    
+    void debug() {
+        Serial.print(F("tau, adjust steps, total_adjust, elapsed, deviation, deviation, deviation: "));
+        Serial.print(calibration_running? '@': '.');
+        Serial.print(' ');
+        Serial.print(tau);
+        Serial.print(F(", "));
+        Serial.print(adjust_steps);
+        Serial.print(F(", "));
+        Serial.print(DCF77_1_Khz_Generator::read_adjustment());
+        Serial.print(F(", "));
+        Serial.print(elapsed);
+        Serial.print(F(", "));
+        Serial.print(deviation);
+        Serial.print(F(" Ticks, "));
+        const int16_t deviation_Hz = deviation * adjust_steps;
+        Serial.print(deviation_Hz);
+        Serial.print(F(" Hz, "));
+        const int16_t deviation_ppm = deviation_Hz / 16;
+        Serial.print(deviation_Hz / 16);
+        const int8_t remainder = deviation_Hz - 16*deviation_ppm;
+        if (remainder) {
+            if (remainder>0) {
+                Serial.print(F("+"));
+            }
+            Serial.print(remainder);
+            Serial.print(F("/16"));
+        }
+        Serial.println(F(" ppm "));
+    }
+    
+    bool increase_tau() {
+        if (tau < tau_max) {
+            tau <<= 1;
+            adjust_steps >>= 1;
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
+    bool decrease_tau() {
+        if (tau > tau_min) {
+            tau >>= 1;
+            adjust_steps <<= 1;
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
+    void adjust() {
+        int16_t total_adjust = DCF77_1_Khz_Generator::read_adjustment() - deviation * adjust_steps;
+        if (total_adjust >  max_total_adjust) { total_adjust =  max_total_adjust; }
+        if (total_adjust < -max_total_adjust) { total_adjust = -max_total_adjust; }
+        
+        DCF77_1_Khz_Generator::adjust(total_adjust);
+        
+        restart_measurement();
+    }
+    
+    void process_1_Hz_tick() {
+        const int16_t good_deviation = 1;  // maximum absolute deviation to increase tau
+        const int16_t poor_deviation = 3;  // deviation to decrease tau
+        
+        if (calibration_running) {
+            //const int16_t deviation = tick - start_tick;
+            deviation = tick - start_tick;
+            const int16_t absolute_deviation = deviation>0 ? deviation : -deviation;
+
+            if (elapsed >= tau) {
+                // measurement finished
+                if (absolute_deviation <= 1) {
+                    if (!increase_tau()) {
+                        // if tau could be increased continue current measurement
+                        // otherwise adjust and start new measurement
+                        adjust();
+                    }
+                } else {  // absolute_deviation > 1
+                    adjust();
+                    // measurement finished and at least 2 ticks deviation
+                    // determine if we should stick with tau
+                    if (absolute_deviation <= good_deviation) {
+                        increase_tau();
+                    }
+                    if (absolute_deviation >= poor_deviation) {
+                        decrease_tau();
+                    }
+                }
+            } else {  // elasped < tau
+                while (absolute_deviation > poor_deviation && elapsed + elapsed < tau && decrease_tau()) {
+                    // decrease_tau as much as reasonable, notice that decrease_tau()
+                    // will return true if it decreased tau
+                }
+            }
+            tick -= 100;
+        }
+    }
+    
+    void process_1_kHz_tick() {
+        static uint8_t divider = 0;
+        if (divider < 9) {
+            ++divider;
+        }  else {
+            divider = 0;
+            
+            // ticks will increase every 10 ms = @ 100 Hz
+            ++tick;
+            ++elapsed;
+        }
+    }
+    
+    void setup() {
+        // could be used to reread persisted adjustment from EEPROM
+    }
 }
 
 namespace DCF77_1_Khz_Generator {
