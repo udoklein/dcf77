@@ -185,7 +185,7 @@ void loop() {
         Serial.print(':');
         paddedPrint(now.second);
 
-        const int8_t offset_to_utc = timezone_offset + now.uses_summertime? 2: 1;
+        const int8_t offset_to_utc = timezone_offset + (now.uses_summertime? 2: 1);
         Serial.print(F(" UTC"));
         Serial.print(offset_to_utc<0? '-':'+');
         if (abs(offset_to_utc) < 10) {
