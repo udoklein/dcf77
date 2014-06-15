@@ -12,6 +12,11 @@ There are also some ready to run examples.
 For the details and background information you may want to consult
 the DCF77 section of my blog http://blog.blinkenlight.net/experiments/dcf77/.
 
+The Library itself and its examples are documented here
+http://blog.blinkenlight.net/experiments/dcf77/dcf77-library/.
+This page also contains a short FAQ sections. Please read this page
+first if you encounter any issues with my library.
+
 
 Attention: the library requires a crystal oscillator. The Arduino
 Uno comes out of the box with a resonator. Thus it will not work
