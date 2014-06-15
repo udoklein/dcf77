@@ -122,27 +122,26 @@ namespace DCF77_1_Khz_Generator {
     void isr_handler();
 }
 
-namespace DCF77_Drift_Control {
+namespace DCF77_Frequency_Control {
     // tau_max = 160 000 seconds ~ almost 2 days
     const uint32_t tau_max = 16000000;
-    
-    //// tau_min = 625 seconds ~ 10 minutes --> to short in the presence of significant noise
-    //const uint32_t tau_min = tau_max >> 8;
-    
+    // adjust step =  1 Hz = 1/16 ppm
+    const int8_t precision_at_tau_max = 1;
+
+    // adjust_step = 64 Hz = 4 ppm
+    const int8_t precision_at_tau_min = precision_at_tau_max << 6;
     // tau_min = 2500 seconds ~ 40 minutes --> OK even in noisy environments
-    const uint32_t tau_min = tau_max >> 6;
+    const uint32_t tau_min = tau_max / precision_at_tau_min;
+
+    const int8_t precision_1_ppm = precision_at_tau_max << 4;
+    // tau_min = 2500 seconds ~ 40 minutes --> OK even in noisy environments
+    const uint32_t tau_1_ppm = tau_max / precision_1_ppm;
     
-    
-    // adjust step =   1 Hz = 1/16 ppm
-    const int16_t adjust_steps_at_tau_max = 1;
-    
-    //// adjust step = 256 Hz = 16 ppm --> to coarse in the presence of significant noise
-    //const int16_t adjust_steps_at_tau_min = adjust_steps_at_tau_max << 8;
-    
-    // adjust_step =  64 Hz = 4 ppm
-    const int16_t adjust_steps_at_tau_min = adjust_steps_at_tau_max << 6;
     
     // 1600 Hz = 100 ppm
+    // Theoretically higher values would be possible.
+    // However if a tuning beyond 100 ppm is necessary then there is something
+    // fundamentally wrong with the oscillator.
     const int16_t max_total_adjust = 1600;
 
     void restart_measurement();
@@ -155,6 +154,33 @@ namespace DCF77_Drift_Control {
     void start_calibration();
     void cancel_calibration();
     void setup();
+
+    // Offset for writing to EEPROM / reading from EEPROM
+    // this is necesarry if other libraries also want to
+    // use EEPROM.
+    // This library will use 8 bytes of EEPROM
+    // 2 bytes for an identifier and 3 bytes for storing the
+    // data redundantantly.
+    const uint16_t eeprom_base = 0;
+    void persist_to_eeprom(const int8_t adjust_steps, const int16_t adjust);  // this is slow, do not call during interrupt handling
+    void read_from_eeprom(int8_t &adjust_steps, int16_t &adjust);
+    void read_from_eeprom(int8_t &adjust_steps, int16_t &adjust, uint32_t &tau);
+    void auto_persist();  // this is slow and messes with the interrupt flag, do not call during interrupt handling
+
+    // get the adjust step that was used for the last adjustment
+    //   if there was no adjustment or if the frequency adjustment was poor it will return 0
+    //   if the adjustment was from eeprom it will return the negative value of the persisted adjust step
+    int8_t get_confirmed_precision();
+
+    // this is always something in between the adjust step constants
+    int8_t get_target_precision();
+
+    // 1 tick = 1/100s but this does not matter, the only relevant informaiton is the ratio
+    //   deviation / elapsed_ticks
+    // this is undefined if elapsed_ticks == 0, it is also pretty meaningless if elapsed_ticks is very small
+    // elapsed ticks == 0 occurs immediately at the start of a new measurement run,
+    // it also occurs if the clock is out of sync
+    void get_phase_deviation(int16_t &deviation, uint32_t &elapsed_ticks);
 }
 
 
