@@ -75,7 +75,7 @@ namespace DCF77_Clock {
 
     void setup();
     void setup(const input_provider_t input_provider, const output_handler_t output_handler);
-
+    
     void set_input_provider(const input_provider_t);
     void set_output_handler(const output_handler_t output_handler);
 
@@ -84,6 +84,8 @@ namespace DCF77_Clock {
     // non-blocking, reads current second
     void read_current_time(time_t &now);
 
+    void auto_persist();  // this is slow and messes with the interrupt flag, do not call during interrupt handling
+    
     void print(time_t time);
 
     void debug();
@@ -504,6 +506,8 @@ namespace DCF77_Clock_Controller {
 
     void flush(const DCF77::time_data_t &decoded_time);
     void set_output_handler(const DCF77_Clock::output_handler_t output_handler);
+    
+    void auto_persist();  // this is slow and messes with the interrupt flag, do not call during interrupt handling
 
     typedef Hamming::lock_quality_t lock_quality_t;
 

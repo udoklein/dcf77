@@ -2014,11 +2014,16 @@ namespace DCF77_Clock_Controller {
     DCF77::time_data_t decoded_time;
     
     void get_current_time(DCF77::time_data_t &now) {
+        auto_persist();
         DCF77_Local_Clock::get_current_time(now);
     }
     
     void read_current_time(DCF77::time_data_t &now) {
         DCF77_Local_Clock::get_current_time(now);
+    }
+    
+    void auto_persist() {
+        DCF77_Frequency_Control::auto_persist();
     }
     
     void set_DCF77_encoder(DCF77::time_data_t &now) {
@@ -2673,6 +2678,10 @@ namespace DCF77_Clock {
         DCF77_Clock_Controller::set_output_handler(output_handler);
     }
     
+    void auto_persist() {
+        DCF77_Clock_Controller::auto_persist();
+    }
+    
     void convert_time(const DCF77::time_data_t &current_time, time_t &now) {
         now.second                    = BCD::int_to_bcd(current_time.second);
         now.minute                    = current_time.minute;
@@ -2687,6 +2696,7 @@ namespace DCF77_Clock {
     }
     
     void get_current_time(time_t &now) {
+    
         DCF77::time_data_t current_time;
         DCF77_Clock_Controller::get_current_time(current_time);
         
