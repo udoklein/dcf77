@@ -28,7 +28,7 @@ namespace BCD {
             uint8_t lo:4;
             uint8_t hi:4;
         } digit;
-        
+
         struct {
             uint8_t b0:1;
             uint8_t b1:1;
@@ -39,12 +39,12 @@ namespace BCD {
             uint8_t b6:1;
             uint8_t b7:1;
         } bit;
-        
+
         uint8_t val;
     } bcd_t;
-    
+
     void increment(bcd_t &value);
-    
+
     bcd_t int_to_bcd(const uint8_t value);
     uint8_t bcd_to_int(const bcd_t value);
 }
@@ -75,7 +75,7 @@ namespace DCF77_Clock {
 
     void setup();
     void setup(const input_provider_t input_provider, const output_handler_t output_handler);
-    
+
     void set_input_provider(const input_provider_t);
     void set_output_handler(const output_handler_t output_handler);
 
@@ -85,7 +85,7 @@ namespace DCF77_Clock {
     void read_current_time(time_t &now);
 
     void auto_persist();  // this is slow and messes with the interrupt flag, do not call during interrupt handling
-    
+
     void print(time_t time);
 
     void debug();
@@ -138,8 +138,8 @@ namespace DCF77_Frequency_Control {
     const int8_t precision_1_ppm = precision_at_tau_max << 4;
     // tau_min = 2500 seconds ~ 40 minutes --> OK even in noisy environments
     const uint32_t tau_1_ppm = tau_max / precision_1_ppm;
-    
-    
+
+
     // 1600 Hz = 100 ppm
     // Theoretically higher values would be possible.
     // However if a tuning beyond 100 ppm is necessary then there is something
@@ -163,7 +163,7 @@ namespace DCF77_Frequency_Control {
     // This library will use 8 bytes of EEPROM
     // 2 bytes for an identifier and 3 bytes for storing the
     // data redundantantly.
-    const uint16_t eeprom_base = 0;
+    const uint16_t eeprom_base = 0x00;
     void persist_to_eeprom(const int8_t adjust_steps, const int16_t adjust);  // this is slow, do not call during interrupt handling
     void read_from_eeprom(int8_t &adjust_steps, int16_t &adjust);
     void read_from_eeprom(int8_t &adjust_steps, int16_t &adjust, uint32_t &tau);
@@ -506,7 +506,7 @@ namespace DCF77_Clock_Controller {
 
     void flush(const DCF77::time_data_t &decoded_time);
     void set_output_handler(const DCF77_Clock::output_handler_t output_handler);
-    
+
     void auto_persist();  // this is slow and messes with the interrupt flag, do not call during interrupt handling
 
     typedef Hamming::lock_quality_t lock_quality_t;
