@@ -40,8 +40,8 @@ ISR(TIMER2_COMPA_vect) {
 
 void initTimer2() {
     // Timer 2 CTC mode, prescaler 64
-    TCCR2B = (1<<WGM22) | (1<<CS22);
-    TCCR2A = (1<<WGM21);
+    TCCR2B = (0<<WGM22) | (1<<CS22);
+    TCCR2A = (1<<WGM21) | (0<<WGM20);
 
     // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
     OCR2A = 249;
