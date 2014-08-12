@@ -130,15 +130,9 @@ namespace DCF77_Frequency_Control {
     // adjust step =  1 Hz = 1/16 ppm
     const int8_t precision_at_tau_max = 1;
 
-    // adjust_step = 64 Hz = 4 ppm
-    const int8_t precision_at_tau_min = precision_at_tau_max << 6;
-    // tau_min = 2500 seconds ~ 40 minutes --> OK even in noisy environments
+    // adjust_step = 8 Hz = 0.5 ppm
+    const int8_t precision_at_tau_min = precision_at_tau_max << 3;
     const uint32_t tau_min = tau_max / precision_at_tau_min;
-
-    const int8_t precision_1_ppm = precision_at_tau_max << 4;
-    // tau_min = 2500 seconds ~ 40 minutes --> OK even in noisy environments
-    const uint32_t tau_1_ppm = tau_max / precision_1_ppm;
-
 
     // 1600 Hz = 100 ppm
     // Theoretically higher values would be possible.
@@ -483,6 +477,7 @@ namespace DCF77_Local_Clock {
     } clock_state_t;
 
     void setup();
+    void set_has_tuned_clock();
     void process_1_Hz_tick(const DCF77::time_data_t &decoded_time);
     void process_1_kHz_tick();
     void debug();
@@ -508,6 +503,7 @@ namespace DCF77_Clock_Controller {
     void set_output_handler(const DCF77_Clock::output_handler_t output_handler);
 
     void auto_persist();  // this is slow and messes with the interrupt flag, do not call during interrupt handling
+    void on_tuned_clock();
 
     typedef Hamming::lock_quality_t lock_quality_t;
 
@@ -566,11 +562,16 @@ namespace DCF77_Clock_Controller {
 
 namespace DCF77_Demodulator {
     void setup();
+    void set_has_tuned_clock();
     void detector(const uint8_t sampled_data);
     void get_quality(uint32_t &lock_max, uint32_t &noise_max);
     void get_noise_indicator(uint32_t &noise_indicator);
     uint8_t get_quality_factor();
 
     void debug();
+    // attention: debug_verbose is not really thread save
+    //            thus the output may contain unexpected artifacts
+    //            do not rely on the output of one debug cycle
+    void debug_verbose();
 }
 #endif
