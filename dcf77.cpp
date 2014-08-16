@@ -1904,7 +1904,7 @@ namespace DCF77_Local_Clock {
                 }
 
                 case locked: {
-                    if (DCF77_Demodulator::get_quality_factor() > 1) {
+                    if (DCF77_Demodulator::get_quality_factor() > 10) {
                         // If we are not sure about leap seconds we will skip
                         // them. Worst case is that we miss a leap second due
                         // to noisy reception. This may happen at most once a
@@ -1928,18 +1928,34 @@ namespace DCF77_Local_Clock {
                 }
 
                 case unlocked: {
-                    if (200 < tick && tick < 800) {
-                        clock_state = free;
-                        return;
-                    } else if (DCF77_Demodulator::get_quality_factor() > 1) {
-                        clock_state = locked;
-                        if (tick < 200) {
-                            // time output was handled at most 200 ms before
-                            tick = 0;
+                    if (DCF77_Demodulator::get_quality_factor() > 10) {
+                        // Quality is somewhat reasonable again, check
+                        // if the phase offset is in reasonable bounds.
+                        if (200 < tick && tick < 800) {
+                            // Deviation of local phase vs. decoded phase exceeds 200 ms.
+                            // So something is not OK. We can not relock.
+                            // On the other hand we are still below max_unlocked_seconds.
+                            // --> Stay in unlocked mode.
                             return;
                         } else {
-                            break;  // goto locked state
+                            // Phase drift was below 200 ms and clock was not unlocked
+                            // for max_unlocked_seconds. So we know that we are close
+                            // enough to the proper time. Only exception:
+                            //     missed leap seconds.
+                            // We ignore this issue as it is not worse than running in
+                            // free mode.
+                            clock_state = locked;
+                            if (tick < 200) {
+                                // time output was handled at most 200 ms before
+                                tick = 0;
+                                return;
+                            } else {
+                                break;  // goto locked state
+                            }
                         }
+                    } else {
+                        // quality is still poor, we stay in unlocked mode
+                        return;
                     }
                 }
 
