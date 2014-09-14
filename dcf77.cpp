@@ -386,14 +386,14 @@ namespace DCF77_Encoder {
         now.month.val   = 0x01;
         now.year.val    = 0x00;
         now.weekday.val = 0x01;
-        now.uses_summertime           = false;
-        now.uses_backup_antenna       = false;
-        now.timezone_change_scheduled = false;
-        now.leap_second_scheduled     = false;
+        now.uses_summertime                = false;
+        now.abnormal_transmitter_operation = false;
+        now.timezone_change_scheduled      = false;
+        now.leap_second_scheduled          = false;
 
         now.undefined_minute_output                    = false;
         now.undefined_uses_summertime_output           = false;
-        now.undefined_uses_backup_antenna_output       = false;
+        now.undefined_abnormal_transmitter_operation_output       = false;
         now.undefined_timezone_change_scheduled_output = false;
     }
 
@@ -540,23 +540,25 @@ namespace DCF77_Encoder {
         }
     }
 
-    void verify_leap_second_scheduled(DCF77::time_data_t &now) {
+    bool verify_leap_second_scheduled(const DCF77::time_data_t &now) {
         // If day or month are unknown we default to "no leap second" because this is alway a very good guess.
         // If we do not know for sure we are either acquiring a lock right now --> we will easily recover from a wrong guess
         // or we have very noisy data --> the leap second bit is probably noisy as well --> we should assume the most likely case
 
-        now.leap_second_scheduled &= (now.day.val == 0x01);
+        bool leap_second_scheduled = now.leap_second_scheduled && now.day.val == 0x01;
 
-        // leap seconds will always happen at 00:00 UTC == 01:00 CET == 02:00 CEST
+        // leap seconds will always happen
+        // after 23:59:59 UTC and before 00:00 UTC == 01:00 CET == 02:00 CEST
         if (now.month.val == 0x01) {
-            now.leap_second_scheduled &= ((now.hour.val == 0x00 && now.minute.val != 0x00) ||
+            leap_second_scheduled &= ((now.hour.val == 0x00 && now.minute.val != 0x00) ||
             (now.hour.val == 0x01 && now.minute.val == 0x00));
         } else if (now.month.val == 0x07 || now.month.val == 0x04 || now.month.val == 0x10) {
-            now.leap_second_scheduled &= ((now.hour.val == 0x01 && now.minute.val != 0x00) ||
+            leap_second_scheduled &= ((now.hour.val == 0x01 && now.minute.val != 0x00) ||
             (now.hour.val == 0x02 && now.minute.val == 0x00));
         } else {
-            now.leap_second_scheduled = false;
+            leap_second_scheduled = false;
         }
+        return leap_second_scheduled;
     }
 
     void autoset_control_bits(DCF77::time_data_t &now) {
@@ -564,7 +566,7 @@ namespace DCF77_Encoder {
         autoset_timezone(now);
         autoset_timezone_change_scheduled(now);
         // we can not compute leap seconds, we can only verify if they might happen
-        verify_leap_second_scheduled(now);
+        now.leap_second_scheduled = verify_leap_second_scheduled(now);
     }
 
     void advance_second(DCF77::time_data_t &now) {
@@ -649,8 +651,8 @@ namespace DCF77_Encoder {
                 return short_tick;
 
             case 15:
-                if (now.undefined_uses_backup_antenna_output) { return undefined; }
-                result = now.uses_backup_antenna; break;
+                if (now.undefined_abnormal_transmitter_operation_output) { return undefined; }
+                result = now.abnormal_transmitter_operation; break;
 
             case 16:
                 if (now.undefined_timezone_change_scheduled_output) { return undefined; }
@@ -936,8 +938,8 @@ namespace DCF77_Naive_Bitstream_Decoder {
         now.second = second;
 
         switch (second) {
-            case 15: now.uses_backup_antenna = naive_value; break;
-            case 16: now.timezone_change_scheduled = naive_value; break;
+            case 15: now.abnormal_transmitter_operation = naive_value; break;
+            case 16: now.timezone_change_scheduled      = naive_value; break;
 
             case 17:
                 now.uses_summertime = naive_value;
@@ -1019,8 +1021,7 @@ namespace DCF77_Naive_Bitstream_Decoder {
 }
 
 namespace DCF77_Flag_Decoder {
-
-    bool uses_backup_antenna;
+    bool abnormal_transmitter_operation;
     int8_t timezone_change_scheduled;
     int8_t uses_summertime;
     int8_t leap_second_scheduled;
@@ -1028,7 +1029,7 @@ namespace DCF77_Flag_Decoder {
 
     void setup() {
         uses_summertime = 0;
-        uses_backup_antenna = 0;
+        abnormal_transmitter_operation = 0;
         timezone_change_scheduled = 0;
         leap_second_scheduled = 0;
         date_parity = 0;
@@ -1044,7 +1045,7 @@ namespace DCF77_Flag_Decoder {
 
     void process_tick(const uint8_t current_second, const uint8_t tick_value) {
         switch (current_second) {
-            case 15: uses_backup_antenna = tick_value; break;
+            case 15: abnormal_transmitter_operation = tick_value; break;
             case 16: cummulate(timezone_change_scheduled, tick_value); break;
             case 17: cummulate(uses_summertime, tick_value); break;
             case 18: cummulate(uses_summertime, 1-tick_value); break;
@@ -1074,8 +1075,8 @@ namespace DCF77_Flag_Decoder {
         return uses_summertime > 0;
     }
 
-    bool get_uses_backup_antenna() {
-        return uses_backup_antenna;
+    bool get_abnormal_transmitter_operation() {
+        return abnormal_transmitter_operation;
     }
 
     bool get_timezone_change_scheduled() {
@@ -1097,7 +1098,7 @@ namespace DCF77_Flag_Decoder {
 
     void debug() {
         Serial.print(F("Backup Antenna, TZ change, TZ, Leap scheduled, Date parity: "));
-        Serial.print(uses_backup_antenna, BIN);
+        Serial.print(abnormal_transmitter_operation, BIN);
         Serial.print(',');
         Serial.print(timezone_change_scheduled, DEC);
         Serial.print(',');
@@ -1843,16 +1844,21 @@ namespace DCF77_Local_Clock {
         DCF77_Encoder::reset(local_clock_time);
     }
 
+    void read_current_time(DCF77::time_data_t &now) {
+        const uint8_t prev_SREG = SREG;
+        cli();
+
+        now = local_clock_time;
+
+        SREG = prev_SREG;
+    }
+
     void get_current_time(DCF77::time_data_t &now) {
         for (bool stopper = second_toggle; stopper == second_toggle; ) {
             // wait for second_toggle to toggle
             // that is wait for decoded time to be ready
         }
-        now = local_clock_time;
-    }
-
-    void read_current_time(DCF77::time_data_t &now) {
-        now = local_clock_time;
+        read_current_time(now);
     }
 
     void process_1_Hz_tick(const DCF77::time_data_t &decoded_time) {
@@ -1970,6 +1976,7 @@ namespace DCF77_Local_Clock {
     void set_has_tuned_clock() {
         max_unlocked_seconds = 30000;
     };
+
     void process_1_kHz_tick() {
         ++tick;
 
@@ -2048,7 +2055,7 @@ namespace DCF77_Clock_Controller {
     }
 
     void read_current_time(DCF77::time_data_t &now) {
-        DCF77_Local_Clock::get_current_time(now);
+        DCF77_Local_Clock::read_current_time(now);
     }
 
     void auto_persist() {
@@ -2078,10 +2085,10 @@ namespace DCF77_Clock_Controller {
         now.month   = get_month();
         now.year    = get_year();
 
-        now.uses_backup_antenna       = get_uses_backup_antenna();
-        now.timezone_change_scheduled = get_timezone_change_scheduled();
-        now.uses_summertime           = get_uses_summertime();
-        now.leap_second_scheduled     = get_leap_second_scheduled();
+        now.abnormal_transmitter_operation = get_abnormal_transmitter_operation();
+        now.timezone_change_scheduled      = get_timezone_change_scheduled();
+        now.uses_summertime                = get_uses_summertime();
+        now.leap_second_scheduled          = get_leap_second_scheduled();
     }
 
     void flush() {
@@ -2120,10 +2127,10 @@ namespace DCF77_Clock_Controller {
                 now.leap_second_scheduled = DCF77_Flag_Decoder::get_leap_second_scheduled();
 
                 DCF77_Encoder::autoset_control_bits(now);
-                decoded_time.uses_summertime = now.uses_summertime;
-                decoded_time.timezone_change_scheduled = now.timezone_change_scheduled;
-                decoded_time.leap_second_scheduled = now.leap_second_scheduled;
-                decoded_time.uses_backup_antenna = DCF77_Flag_Decoder::get_uses_backup_antenna();
+                decoded_time.uses_summertime                = now.uses_summertime;
+                decoded_time.timezone_change_scheduled      = now.timezone_change_scheduled;
+                decoded_time.leap_second_scheduled          = now.leap_second_scheduled;
+                decoded_time.abnormal_transmitter_operation = DCF77_Flag_Decoder::get_abnormal_transmitter_operation();
             }
 
             if (now.hour.val == 0x23 && now.minute.val == 0x59) {
@@ -2153,7 +2160,7 @@ namespace DCF77_Clock_Controller {
 
         // frequency control must be handled before output handling, otherwise
         // output handling might introduce undesirable jitter to frequency control
-        DCF77_Frequency_Control::process_1_Hz_tick();
+        DCF77_Frequency_Control::process_1_Hz_tick(decoded_time);
 
         if (output_handler) {
             DCF77_Clock::time_t time;
@@ -2366,11 +2373,11 @@ namespace DCF77_Clock_Controller {
         // On the other hand a clean signal will provide a better calibration.
         // Since it is sufficient if the calibration happens only once in a
         // while we are satisfied with hooking at the sync events.
-        DCF77_Frequency_Control::start_calibration();
+        DCF77_Frequency_Control::qualify_calibration();
     }
 
     void sync_lost_event_handler() {
-        DCF77_Frequency_Control::cancel_calibration();
+        DCF77_Frequency_Control::unqualify_calibration();
 
         bool reset_successors = (DCF77_Demodulator::get_quality_factor() == 0);
         if (reset_successors) {
@@ -2588,7 +2595,7 @@ namespace DCF77_Demodulator {
         // will be called once crystal is tuned to better than 1 ppm.
         N = 3600;
     }
-    
+
     uint8_t phase_binning(const uint8_t input) {
         Hamming::advance_tick(bins);
 
@@ -2713,11 +2720,11 @@ namespace DCF77_Demodulator {
         for (uint16_t bin = 0; bin < bins_per_100ms; ++bin) {
             integral += ((uint32_t)bins.data[bin])<<1;
         }
-        
+
         for (uint16_t bin = bins_per_100ms; bin < bins_per_200ms; ++bin) {
             integral += (uint32_t)bins.data[bin];
         }
-        
+
         uint32_t max = 0;
         uint8_t max_index = 0;
         for (uint16_t bin = 0; bin < bin_count; ++bin) {
@@ -2725,7 +2732,7 @@ namespace DCF77_Demodulator {
                 max = integral;
                 max_index = bin;
             }
-            
+
             integral -= (uint32_t)bins.data[bin]<<1;
             integral += (uint32_t)(bins.data[wrap(bin + bins_per_100ms)] +
                                    bins.data[wrap(bin + bins_per_200ms)]);
@@ -2738,21 +2745,21 @@ namespace DCF77_Demodulator {
             Serial.print(F(", "));
             Serial.println(integral);
         }
-        
+
         // max_index indicates the position of the 200ms second signal window.
         // Now how can we estimate the noise level? This is very tricky because
         // averaging has already happened to some extend.
-        
+
         // The issue is that most of the undesired noise happens around the signal,
         // especially after high->low transitions. So as an approximation of the
         // noise I test with a phase shift of 200ms.
         uint32_t noise_max = 0;
         const uint16_t noise_index = wrap(max_index + bins_per_200ms);
-        
+
         for (uint16_t bin = 0; bin < bins_per_100ms; ++bin) {
             noise_max += ((uint32_t)bins.data[wrap(noise_index + bin)])<<1;
         }
-        
+
         for (uint16_t bin = bins_per_100ms; bin < bins_per_200ms; ++bin) {
             noise_max += (uint32_t)bins.data[wrap(noise_index + bin)];
         }
@@ -2861,34 +2868,27 @@ namespace DCF77_Clock {
 }
 
 namespace DCF77_Frequency_Control {
-    // tau = length of measurement period in ticks (@ 100 Hz)
-    volatile uint32_t tau = tau_min;
-    volatile int8_t   precision = precision_at_tau_min;
-    volatile int8_t   confirmed_precision = 0;
+    volatile int8_t confirmed_precision = 0;
 
     // indicator if data may be persisted to EEPROM
-    volatile boolean  data_pending = false;
+    volatile boolean data_pending = false;
 
-    volatile uint32_t elapsed;
-    volatile int16_t  tick;
-    volatile int16_t  start_tick;
+    // 2*tau_max = 32 000 000 centisecond ticks = 5333 minutes
+    volatile uint16_t elapsed_minutes;
+    // 60000 centiseconds = 10 minutes
+    // maximum drift in 32 000 000 centiseconds @ 900 ppm would result
+    // in a drift of +/- 28800 centiseconds
+    // thus it is uniquely measured if we know it mod 60 000
+    volatile uint16_t elapsed_centiseconds_mod_60000;
+    volatile uint8_t  start_minute_mod_10;
 
-    volatile int16_t  deviation = 0;
 
-    void restart_measurement() {
-        start_tick = tick;
-        elapsed = 0;
-    }
+    // Seconds 0 and 15 already receive more computation than
+    // other seconds thus calibration will run in second 5.
+    const int8_t calibration_second = 5;
 
-    bool calibration_running = false;
-    void start_calibration() {
-        calibration_running = true;
-        restart_measurement();
-    }
-
-    void cancel_calibration() {
-        calibration_running = false;
-    }
+    volatile calibration_state_t calibration_state = {false ,false};
+    volatile int16_t deviation;
 
     // get the adjust step that was used for the last adjustment
     //   if there was no adjustment or if the phase drift was poor it will return 0
@@ -2898,162 +2898,116 @@ namespace DCF77_Frequency_Control {
         return confirmed_precision;
     }
 
-    // this is always something in between the adjust step constants
-    int8_t get_target_precision() {
-        return precision;
+    void qualify_calibration() {
+        calibration_state.qualified = true;
+    };
+
+    void unqualify_calibration() {
+        calibration_state.qualified = false;
+    };
+
+    int16_t compute_phase_deviation(uint8_t current_second, uint8_t current_minute_mod_10) {
+        int32_t deviation=
+             ((int32_t) elapsed_centiseconds_mod_60000) -
+             ((int32_t) current_second        - (int32_t) calibration_second)  * 100 -
+             ((int32_t) current_minute_mod_10 - (int32_t) start_minute_mod_10) * 6000;
+
+        // ensure we are between 30000 and -29999
+        while (deviation >  30000) { deviation -= 60000; }
+        while (deviation <=-30000) { deviation += 60000; }
+
+        return deviation;
     }
 
-    // 1 tick = 1/100s but this does not matter, the only relevant information is the ratio
-    //   deviation / elapsed_ticks
-    // this is undefined if elapsed_ticks == 0, it is also pretty meaningless if elapsed_ticks is very small
-    // elapsed ticks == 0 occurs immediately at the start of a new measurement run,
-    // it also occurs if the clock is out of sync
-    void get_phase_deviation(int16_t &deviation, uint32_t &elapsed_ticks) {
-        if (calibration_running) {
-            const uint8_t prev_SREG = SREG;
-            cli();
-            elapsed_ticks = elapsed;
-            deviation = DCF77_Frequency_Control::deviation;
-            SREG = prev_SREG;
-        } else {
-            elapsed_ticks = 0;
-        }
-        if (elapsed_ticks = 0) {
-            // necessary even if calibration_running in order
-            // to avoid glitches right at the start of a run
-            deviation = 0;
-        }
+    calibration_state_t get_calibration_state() {
+        return *(calibration_state_t *)&calibration_state;
     }
 
-    void debug() {
-        Serial.println(F("confirmed_precision ? target_precision, total_adjust, deviation(3), elapsed/tau: "));
-        Serial.print(confirmed_precision);
-        Serial.print(' ');
-        Serial.print(calibration_running? '@': '.');
-        Serial.print(' ');
-        Serial.print(precision);
-        Serial.print(F(", "));
-        Serial.print(DCF77_1_Khz_Generator::read_adjustment());
-        Serial.print(F(" Hz, "));
-        Serial.print(deviation);
-        Serial.print(F(" Ticks, "));
-        const int16_t deviation_Hz = deviation * precision;
-        Serial.print(deviation_Hz);
-        Serial.print(F(" Hz, "));
-        const int16_t deviation_ppm = deviation_Hz / 16;
-        Serial.print(deviation_Hz / 16);
-        const int8_t remainder = deviation_Hz - 16*deviation_ppm;
-        if (remainder) {
-            if (remainder>0) {
-                Serial.print(F("+"));
-            }
-            Serial.print(remainder);
-            Serial.print(F("/16"));
-        }
-        Serial.print(F(" ppm "));
-        Serial.print(F(", "));
-        Serial.print(elapsed);
-        Serial.print('/');
-        Serial.println(tau);
-    }
-
-    bool increase_tau() {
-        if (precision > precision_at_tau_max) {
-            tau <<= 1;
-            precision >>= 1;
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    bool decrease_tau() {
-        if (precision < precision_at_tau_min) {
-            tau >>= 1;
-            precision <<= 1;
-            return true;
-        } else {
-            return false;
-        }
+    int16_t get_current_deviation() {
+        return deviation;
     }
 
     void adjust() {
-        int16_t total_adjust = DCF77_1_Khz_Generator::read_adjustment() - deviation * precision;
+        int16_t total_adjust = DCF77_1_Khz_Generator::read_adjustment();
+
+        // The proper formular would be
+        //     int32_t adjust == (16000000 / (elapsed_minutes * 6000)) * new_deviation;
+        // The total error of the formula below is ~ 1/(3*elapsed_minutes)
+        //     which is  ~ 1/1000
+        // Also notice that 2667*deviation will not overflow even if the
+        // local clock would deviate by more than 400 ppm or 6 kHz
+        // from its nominal frequency.
+        // Finally notice that the frequency_offset will always be rounded towards zero_provider
+        // while the confirmed_precision is rounded away from zereo. The first should
+        // be considered a kind of relaxation while the second should be considered
+        // a defensive computation.
+        const int16_t frequency_offset = ((2667 * (int32_t)deviation) / elapsed_minutes);
+        // In doubt confirmed precision will be slightly larger than the true value
+        confirmed_precision = (((2667 - 1) * 1) + elapsed_minutes) / elapsed_minutes;
+        if (confirmed_precision == 0) { confirmed_precision = 1; }
+
+        total_adjust -= frequency_offset;
+
         if (total_adjust >  max_total_adjust) { total_adjust =  max_total_adjust; }
         if (total_adjust < -max_total_adjust) { total_adjust = -max_total_adjust; }
 
         DCF77_1_Khz_Generator::adjust(total_adjust);
     }
 
-    void process_1_Hz_tick() {
-        const int16_t good_deviation = 1;  // maximum absolute deviation to increase tau
-        const int16_t poor_deviation = 3;  // deviation to decrease tau
-        const int16_t bad_deviation  = 5;  // deviation to decrease tau immediately
+    void process_1_Hz_tick(const DCF77::time_data_t &decoded_time) {
+        const int16_t deviation_to_trigger_readjust = 5;
 
-        if (calibration_running) {
-            //const int16_t deviation = tick - start_tick;
-            deviation = tick - start_tick;
-            const int16_t absolute_deviation = deviation>0 ? deviation : -deviation;
+        deviation = compute_phase_deviation(decoded_time.second, decoded_time.minute.digit.lo);
 
-            if (elapsed >= tau) {
-                // measurement finished
-                adjust();
-                if (absolute_deviation == 0 &&
-                    precision > precision_at_tau_max) {
-                    // absolute_deviation == 0
-                    //   --> no adjustment done
-                    // precision not at maximum resolution
-                    //   --> next measurement period will be doubled
-
-                    // however since no adjustment was done we can
-                    // just continue with the current measurement period
-                    // and thus get faster to the next better resolution
-                } else {
-                    // adjustment done --> new measurement period required
-                    restart_measurement();
-                }
-
-                confirmed_precision = precision;
-                data_pending = true;
-
-                if (absolute_deviation <= good_deviation) {
-                    increase_tau();
-                } else
-                    if (absolute_deviation <= poor_deviation) {
-                        // stay with current precision
-                    } else {
-                        if (!decrease_tau()) {
-                            confirmed_precision = -precision;
-                            data_pending = false;
-                        }
-                    }
-            } else {  // elapsed < tau
-                if (absolute_deviation >= poor_deviation) {
-                    while (elapsed + elapsed < tau && decrease_tau()) {
-                        // decrease_tau as much as reasonable, notice that decrease_tau()
-                        // will return true if it decreased tau
-                        // also notice that it allows for coarser adjustments
-                    }
-                }
-                if (absolute_deviation >= bad_deviation &&
-                    precision < precision_at_tau_min) {
-                    // tau was already decreased but we drifted > 4/100 s this measurement period
-                    // --> drift is way to high, terminate the measurement immediately and
-                    //     adjust as if the measurement was completed
-                    // --> adjustment is probably not sufficient but we get a new measurement
-                    //     period and thus the change to react earlier, also since tau will
-                    //     be decreased larger adjustment steps become possible
-                    // --> only do this if precision is better than precision_at_tau_min,
-                    //    otherwise it will only slowly converge to the target precision
-                    adjust();
-                    restart_measurement();
-
-                    decrease_tau();
-                    confirmed_precision = -precision;
-                    data_pending = false;
-                }
+        if (decoded_time.second == calibration_second) {
+            const bool leap_second_scheduled = decoded_time.leap_second_scheduled;
+            // This is dirty: we overwrite a constant. This will only
+            // work because we are in an interrupt and will not be interrupted.
+            // We restore the constant immediately after the check.
+            // Unfortunately this is necessary because we might be
+            // in an unqualified state and thus the leap second information may be wrong.
+            // However if we fail to detect this calibration will be wrong by
+            // 1 second.
+            ((DCF77::time_data_t)decoded_time).leap_second_scheduled = true;
+            if (DCF77_Encoder::verify_leap_second_scheduled(decoded_time)) {
+                // Leap seconds will mess up our frequency computations.
+                // Handling them properly would be slightly more complicated.
+                // Since leap seconds may only happen every 3 months we just
+                // stop calibration for leap seconds and do nothing else.
+                calibration_state.running = false;
             }
-            tick -= 100;
+            ((DCF77::time_data_t)decoded_time).leap_second_scheduled = leap_second_scheduled;
+
+            if (calibration_state.running) {
+                if (calibration_state.qualified) {
+                    if ((elapsed_minutes >= tau_min_minutes && abs(deviation) >= deviation_to_trigger_readjust) ||
+                        elapsed_minutes >= tau_max_minutes) {
+                        adjust();
+
+                        // enqueue write to eeprom
+                        data_pending = true;
+                        // restart calibration next second
+                        calibration_state.running = false;
+                    }
+                } else {
+                    // unqualified
+                    if (elapsed_minutes >= tau_max_minutes) {
+                        // running unqualified for more than tau minutes
+                        //   --> the current calibration attempt is doomed
+                        calibration_state.running = false;
+                    }
+                    // else running but unqualified --> wait for better state
+                }
+            } else {
+                // (calibration_state.running == false) --> waiting
+                if (calibration_state.qualified) {
+                    elapsed_centiseconds_mod_60000 = 0;
+                    elapsed_minutes = 0;
+                    start_minute_mod_10 = decoded_time.minute.digit.lo;
+                    calibration_state.running = true;
+                }
+                // else waiting but unqualified --> nothing to do
+            }
         }
     }
 
@@ -3064,15 +3018,20 @@ namespace DCF77_Frequency_Control {
         }  else {
             divider = 0;
 
-            // ticks will increase every 10 ms = @ 100 Hz
-            ++tick;
-            ++elapsed;
+            if (elapsed_centiseconds_mod_60000 < 59999) {
+                ++elapsed_centiseconds_mod_60000;
+            } else {
+                elapsed_centiseconds_mod_60000 = 0;
+            }
+            if (elapsed_centiseconds_mod_60000 % 6000 == 0) {
+                ++elapsed_minutes;
+            }
         }
     }
 
     // ID constants to see if EEPROM has already something stored
-    const char ID_u = 'U';
-    const char ID_k = 'K';
+    const char ID_u = 'u';
+    const char ID_k = 'k';
     void persist_to_eeprom(const int8_t precision, const int16_t adjust) {
         // this is slow, do not call during interrupt handling
         uint16_t eeprom = eeprom_base;
@@ -3104,13 +3063,6 @@ namespace DCF77_Frequency_Control {
         adjust = 0;
     }
 
-    void read_from_eeprom(int8_t &precision, int16_t &adjust, uint32_t &tau) {
-        int8_t ee_precision;
-        read_from_eeprom(ee_precision, adjust);
-        precision = ee_precision;
-        tau = tau_max / ee_precision;
-    }
-
     // do not call during ISRs
     void auto_persist() {
         // ensure that reading of data can not be interrupted!!
@@ -3131,11 +3083,11 @@ namespace DCF77_Frequency_Control {
             int8_t  ee_precision;
             read_from_eeprom(ee_precision, ee_adjust);
 
-            if (confirmed_precision < abs(ee_precision) ||        // precision better than it used to be
-                ( abs(ee_precision) < 8 &&                        // precision better than 8 Hz or 0.5 ppm @ 16 MHz
-                  abs(ee_adjust-adjust) > 8 )           ||        // deviation worse than 8 Hz (thus 16 Hz or 1 ppm)
-                ( confirmed_precision == precision_at_tau_max &&  // tau_max > 1 day thus it is
-                  abs(ee_adjust-adjust) > 0 ) )                   // acceptable to always write
+            if (confirmed_precision < abs(ee_precision) ||        // - precision better than it used to be
+                ( abs(ee_precision) < 8 &&                        // - precision better than 8 Hz or 0.5 ppm @ 16 MHz
+                  abs(ee_adjust-adjust) > 8 )           ||        //   deviation worse than 8 Hz (thus 16 Hz or 1 ppm)
+                ( confirmed_precision == 1 &&                     // - It takes more than 1 day to arrive at 1 Hz precision
+                  abs(ee_adjust-adjust) > 0 ) )                   //   thus it acceptable to always write
             {
                 cli();
                 const int16_t new_ee_adjust = adjust;
@@ -3156,20 +3108,35 @@ namespace DCF77_Frequency_Control {
         if (ee_precision) {
             DCF77_Clock_Controller::on_tuned_clock();
         }
-        ee_precision = precision_at_tau_min;
 
         const uint8_t prev_SREG = SREG;
         cli();
 
-        tau = tau_min;
-        precision = precision_at_tau_min;
-        // start with negative values for precision
-        // so we know the absolute value of the precision but
-        // still have an indicator that it was read from EEPROM
-        confirmed_precision = -precision_at_tau_min;
-
         SREG = prev_SREG;
         DCF77_1_Khz_Generator::adjust(adjust);
+    }
+
+    void debug() {
+        Serial.println(F("confirmed_precision ?? adjustment, deviation, elapsed"));
+        Serial.print(confirmed_precision);
+        Serial.print(F(" Hz "));
+        Serial.print(calibration_state.running? '@': '.');
+        Serial.print(calibration_state.qualified? '+': '-');
+        Serial.print(' ');
+
+        Serial.print(F(", "));
+        Serial.print(DCF77_1_Khz_Generator::read_adjustment());
+        Serial.print(F(" Hz, "));
+
+        Serial.print(deviation);
+        Serial.print(F(" ticks, "));
+
+        Serial.print(elapsed_minutes);
+        Serial.print(F(" min, "));
+
+        Serial.print(elapsed_centiseconds_mod_60000);
+        Serial.println(F(" cs mod 60000"));
+
     }
 }
 

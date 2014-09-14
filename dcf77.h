@@ -113,86 +113,6 @@ namespace DCF77_Clock {
     uint8_t get_prediction_match();
 }
 
-
-namespace DCF77_1_Khz_Generator {
-    void setup(const DCF77_Clock::input_provider_t input_provider);
-    uint8_t zero_provider();
-    // positive_value --> increase frequency
-    // pp16m = parts per 16 million = 1 Hz @ 16 Mhz
-    void adjust(const int16_t pp16m);
-    int16_t read_adjustment();
-    void isr_handler();
-}
-
-namespace DCF77_Frequency_Control {
-    // tau_max = 160 000 seconds ~ almost 2 days
-    const uint32_t tau_max = 16000000;
-    // adjust step =  1 Hz = 1/16 ppm
-    const int8_t precision_at_tau_max = 1;
-
-    // adjust_step = 8 Hz = 0.5 ppm
-    const int8_t precision_at_tau_min = precision_at_tau_max << 3;
-    const uint32_t tau_min = tau_max / precision_at_tau_min;
-
-    // 1600 Hz = 100 ppm
-    // Theoretically higher values would be possible.
-    // However if a tuning beyond 100 ppm is necessary then there is something
-    // fundamentally wrong with the oscillator.
-    const int16_t max_total_adjust = 1600;
-
-    void restart_measurement();
-    void debug();
-    bool increase_tau();
-    bool decrease_tau();
-    void adjust();
-    void process_1_Hz_tick();
-    void process_1_kHz_tick();
-    void start_calibration();
-    void cancel_calibration();
-    void setup();
-
-    // Offset for writing to EEPROM / reading from EEPROM
-    // this is necesarry if other libraries also want to
-    // use EEPROM.
-    // This library will use 8 bytes of EEPROM
-    // 2 bytes for an identifier and 3 bytes for storing the
-    // data redundantantly.
-    const uint16_t eeprom_base = 0x00;
-    void persist_to_eeprom(const int8_t adjust_steps, const int16_t adjust);  // this is slow, do not call during interrupt handling
-    void read_from_eeprom(int8_t &adjust_steps, int16_t &adjust);
-    void read_from_eeprom(int8_t &adjust_steps, int16_t &adjust, uint32_t &tau);
-    void auto_persist();  // this is slow and messes with the interrupt flag, do not call during interrupt handling
-
-    // get the adjust step that was used for the last adjustment
-    //   if there was no adjustment or if the frequency adjustment was poor it will return 0
-    //   if the adjustment was from eeprom it will return the negative value of the persisted adjust step
-    int8_t get_confirmed_precision();
-
-    // this is always something in between the adjust step constants
-    int8_t get_target_precision();
-
-    // 1 tick = 1/100s but this does not matter, the only relevant informaiton is the ratio
-    //   deviation / elapsed_ticks
-    // this is undefined if elapsed_ticks == 0, it is also pretty meaningless if elapsed_ticks is very small
-    // elapsed ticks == 0 occurs immediately at the start of a new measurement run,
-    // it also occurs if the clock is out of sync
-    void get_phase_deviation(int16_t &deviation, uint32_t &elapsed_ticks);
-}
-
-
-namespace Debug {
-    void debug_helper(char data);
-    void bcddigit(uint8_t data);
-    void bcddigits(uint8_t data);
-}
-
-namespace Hamming {
-    typedef struct {
-        uint8_t lock_max;
-        uint8_t noise_max;
-    } lock_quality_t;
-}
-
 namespace DCF77 {
     typedef enum {
         long_tick  = 3,
@@ -218,15 +138,15 @@ namespace DCF77 {
         BCD::bcd_t hour;     // 0..23
         BCD::bcd_t minute;   // 0..59
         uint8_t second;      // 0..60
-        bool uses_summertime           : 1;  // false -> wintertime, true, summertime
-        bool uses_backup_antenna       : 1;  // typically false
-        bool timezone_change_scheduled : 1;
-        bool leap_second_scheduled     : 1;
+        bool uses_summertime                : 1;  // false -> wintertime, true, summertime
+        bool abnormal_transmitter_operation : 1;  // typically false
+        bool timezone_change_scheduled      : 1;
+        bool leap_second_scheduled          : 1;
 
-        bool undefined_minute_output                    : 1;
-        bool undefined_uses_summertime_output           : 1;
-        bool undefined_uses_backup_antenna_output       : 1;
-        bool undefined_timezone_change_scheduled_output : 1;
+        bool undefined_minute_output                        : 1;
+        bool undefined_uses_summertime_output               : 1;
+        bool undefined_abnormal_transmitter_operation_output: 1;
+        bool undefined_timezone_change_scheduled_output     : 1;
     } time_data_t;
 
     typedef void (*output_handler_t)(const DCF77::time_data_t &decoded_time);
@@ -239,6 +159,86 @@ namespace DCF77 {
         locked   = 4,  // no valid time data but clock driven by accurate phase
         synced   = 5   // best possible quality, clock is 100% synced
     } clock_state_t;
+}
+
+namespace DCF77_1_Khz_Generator {
+    void setup(const DCF77_Clock::input_provider_t input_provider);
+    uint8_t zero_provider();
+    // positive_value --> increase frequency
+    // pp16m = parts per 16 million = 1 Hz @ 16 Mhz
+    void adjust(const int16_t pp16m);
+    int16_t read_adjustment();
+    void isr_handler();
+}
+
+namespace DCF77_Frequency_Control {
+    // Precision at tau min is 8 Hz == 0.5 ppm or better
+    // This is because 334 m = 334 * 60 * 100 centiseconds = 2004000 centiseconds
+    // Do not decrease this value!
+    const uint16_t tau_min_minutes   = 334;
+
+    // Precision at tau_max would be 0.5 Hz
+    // This may be decreased if desired. Do not decrease below 2*tau_min.
+    const uint16_t tau_max_minutes = 5334; // 5334 * 6000 = 32004000
+
+    // 1600 Hz = 100 ppm
+    // Theoretically higher values would be possible.
+    // However if a tuning beyond 100 ppm is necessary then there is something
+    // fundamentally wrong with the oscillator.
+    const int16_t max_total_adjust = 1600;
+
+    void restart_measurement();
+    void debug();
+    bool increase_tau();
+    bool decrease_tau();
+    void adjust();
+    void process_1_Hz_tick(const DCF77::time_data_t &decoded_time);
+    void process_1_kHz_tick();
+
+    void qualify_calibration();
+    void unqualify_calibration();
+
+    typedef struct {
+        bool qualified : 1;
+        bool running : 1;
+    } calibration_state_t;
+
+    calibration_state_t get_calibration_state();
+    // The phase deviation is only meaningful if calibration is running.
+    int16_t get_current_deviation();
+
+    void setup();
+
+    // Offset for writing to EEPROM / reading from EEPROM
+    // this is necesarry if other libraries also want to
+    // use EEPROM.
+    // This library will use 8 bytes of EEPROM
+    // 2 bytes for an identifier and 3 bytes for storing the
+    // data redundantantly.
+    const uint16_t eeprom_base = 0x00;
+    void persist_to_eeprom(const int8_t adjust_steps, const int16_t adjust);  // this is slow, do not call during interrupt handling
+    void read_from_eeprom(int8_t &adjust_steps, int16_t &adjust);
+    void read_from_eeprom(int8_t &adjust_steps, int16_t &adjust, uint32_t &tau);
+    void auto_persist();  // this is slow and messes with the interrupt flag, do not call during interrupt handling
+
+    // get the adjust step that was used for the last adjustment
+    //   if there was no adjustment or if the frequency adjustment was poor it will return 0
+    //   if the adjustment was from eeprom it will return the negative value of the persisted adjust step
+    int8_t get_confirmed_precision();
+}
+
+
+namespace Debug {
+    void debug_helper(char data);
+    void bcddigit(uint8_t data);
+    void bcddigits(uint8_t data);
+}
+
+namespace Hamming {
+    typedef struct {
+        uint8_t lock_max;
+        uint8_t noise_max;
+    } lock_quality_t;
 }
 
 namespace DCF77_Encoder {
@@ -272,6 +272,8 @@ namespace DCF77_Encoder {
     // Look at the leap second and summer / wintertime transistions
     // to understand the subtle implications.
     void autoset_control_bits(DCF77::time_data_t &now);
+
+    bool verify_leap_second_scheduled(const DCF77::time_data_t &now);
 
     void debug(const DCF77::time_data_t &clock);
     void debug(const DCF77::time_data_t &clock, const uint16_t cycles);
@@ -369,7 +371,7 @@ namespace DCF77_Flag_Decoder {
     void reset_before_new_day();
 
     bool get_uses_summertime();
-    bool get_uses_backup_antenna();
+    bool get_abnormal_transmitter_operation();
     bool get_timezone_change_scheduled();
     bool get_leap_second_scheduled();
 
