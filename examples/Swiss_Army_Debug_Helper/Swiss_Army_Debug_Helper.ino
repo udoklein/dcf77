@@ -407,8 +407,8 @@ char get_mode() { return mode; }
 
 uint8_t sample_input_pin() {
     const uint8_t sampled_data =
-    dcf77_inverted_samples ^ (dcf77_analog_samples? (analogRead(dcf77_analog_sample_pin) > 200):
-    digitalRead(dcf77_sample_pin));
+        dcf77_inverted_samples ^ (dcf77_analog_samples? (analogRead(dcf77_analog_sample_pin) > 200)
+                                                      : digitalRead(dcf77_sample_pin));
 
     // computations must be before display code
     Scope::process_one_sample(sampled_data);
