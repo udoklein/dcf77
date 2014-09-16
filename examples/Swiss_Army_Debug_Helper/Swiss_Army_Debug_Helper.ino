@@ -109,7 +109,7 @@ namespace LED_Display {
 
             case 'f':  { // flash
                 for (uint8_t pin = lower_output_pin; pin <= upper_output_pin; ++pin) {
-                    digitalWrite(pin, !sampled_data);
+                    digitalWrite(pin, sampled_data);
                 }
             }
             break;
