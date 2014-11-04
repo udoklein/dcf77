@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see http://www.gnu.org/licenses/
 
-#include <dcf77.h>
+#include "dcf77.h"
 #include <avr/eeprom.h>
 
 namespace Debug {
@@ -2968,7 +2968,10 @@ namespace DCF77_Frequency_Control {
             // in an unqualified state and thus the leap second information may be wrong.
             // However if we fail to detect this calibration will be wrong by
             // 1 second.
-            ((DCF77::time_data_t)decoded_time).leap_second_scheduled = true;
+            // To modify the contents of "decoded_time" which is of type const,
+            // we create a pointer to it and use the pointer to modify lead_second_scheduled
+            DCF77::time_data_t* temporary_decoded_time = (DCF77::time_data_t*)&decoded_time;
+            temporary_decoded_time->leap_second_scheduled = true;
             if (DCF77_Encoder::verify_leap_second_scheduled(decoded_time)) {
                 // Leap seconds will mess up our frequency computations.
                 // Handling them properly would be slightly more complicated.
@@ -2976,7 +2979,7 @@ namespace DCF77_Frequency_Control {
                 // stop calibration for leap seconds and do nothing else.
                 calibration_state.running = false;
             }
-            ((DCF77::time_data_t)decoded_time).leap_second_scheduled = leap_second_scheduled;
+            temporary_decoded_time->leap_second_scheduled = leap_second_scheduled;
 
             if (calibration_state.running) {
                 if (calibration_state.qualified) {
