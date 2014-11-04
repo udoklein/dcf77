@@ -365,7 +365,7 @@ namespace Hamming {
 namespace DCF77_Encoder {
     using namespace DCF77;
 
-    inline uint8_t days_per_month(const DCF77::time_data_t &now) __attribute__((always_inline));
+    inline uint8_t days_per_month(const DCF77::time_data_t &now);
     uint8_t days_per_month(const DCF77::time_data_t &now) {
         switch (now.month.val) {
             case 0x02:
