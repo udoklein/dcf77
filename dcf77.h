@@ -273,7 +273,7 @@ namespace DCF77_Encoder {
     // to understand the subtle implications.
     void autoset_control_bits(DCF77::time_data_t &now);
 
-    bool verify_leap_second_scheduled(const DCF77::time_data_t &now);
+    bool verify_leap_second_scheduled(const DCF77::time_data_t &now, bool assume_leap_second = false);
 
     void debug(const DCF77::time_data_t &clock);
     void debug(const DCF77::time_data_t &clock, const uint16_t cycles);
