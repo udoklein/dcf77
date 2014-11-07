@@ -69,6 +69,25 @@ namespace BCD {
     uint8_t bcd_to_int(const bcd_t value) {
         return value.digit.lo + 10*value.digit.hi;
     }
+
+    bool operator == (const bcd_t a, const bcd_t b) {
+        return a.val == b.val;
+    }
+    bool operator != (const bcd_t a, const bcd_t b) {
+        return a.val != b.val;
+    }
+    bool operator >= (const bcd_t a, const bcd_t b) {
+        return a.val >= b.val;
+    }
+    bool operator <= (const bcd_t a, const bcd_t b) {
+        return a.val <= b.val;
+    }
+    bool operator > (const bcd_t a, const bcd_t b) {
+        return a.val > b.val;
+    }
+    bool operator < (const bcd_t a, const bcd_t b) {
+        return a.val < b.val;
+    }
 }
 
 namespace Arithmetic_Tools {

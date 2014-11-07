@@ -43,6 +43,13 @@ namespace BCD {
         uint8_t val;
     } bcd_t;
 
+    bool operator == (const bcd_t a, const bcd_t b);
+    bool operator != (const bcd_t a, const bcd_t b);
+    bool operator >= (const bcd_t a, const bcd_t b);
+    bool operator <= (const bcd_t a, const bcd_t b);
+    bool operator >  (const bcd_t a, const bcd_t b);
+    bool operator <  (const bcd_t a, const bcd_t b);
+
     void increment(bcd_t &value);
 
     bcd_t int_to_bcd(const uint8_t value);
