@@ -540,19 +540,13 @@ namespace DCF77_Encoder {
         }
     }
 
-    bool verify_leap_second_scheduled(const DCF77::time_data_t &now, bool assume_leap_second) {
+    bool verify_leap_second_scheduled(const DCF77::time_data_t &now, const bool assume_leap_second) {
         // If day or month are unknown we default to "no leap second" because this is alway a very good guess.
         // If we do not know for sure we are either acquiring a lock right now --> we will easily recover from a wrong guess
         // or we have very noisy data --> the leap second bit is probably noisy as well --> we should assume the most likely case
 
-        bool leap_second_scheduled;
-        if (assume_leap_second) {
-            leap_second_scheduled = true && now.day.val == 0x01;
-        }
-        else {
-            leap_second_scheduled = now.leap_second_scheduled && now.day.val == 0x01;
-        }
-        
+        bool leap_second_scheduled = now.day.val == 0x01 && (assume_leap_second || now.leap_second_scheduled);
+
         // leap seconds will always happen
         // after 23:59:59 UTC and before 00:00 UTC == 01:00 CET == 02:00 CEST
         if (now.month.val == 0x01) {
@@ -564,6 +558,7 @@ namespace DCF77_Encoder {
         } else {
             leap_second_scheduled = false;
         }
+
         return leap_second_scheduled;
     }
 
