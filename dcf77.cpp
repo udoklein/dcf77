@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see http://www.gnu.org/licenses/
 
-#include <dcf77.h>
+#include "dcf77.h"
 #include <avr/eeprom.h>
 
 namespace Debug {
@@ -365,7 +365,7 @@ namespace Hamming {
 namespace DCF77_Encoder {
     using namespace DCF77;
 
-    inline uint8_t days_per_month(const DCF77::time_data_t &now) __attribute__((always_inline));
+    inline uint8_t days_per_month(const DCF77::time_data_t &now);
     uint8_t days_per_month(const DCF77::time_data_t &now) {
         switch (now.month.val) {
             case 0x02:
@@ -540,12 +540,12 @@ namespace DCF77_Encoder {
         }
     }
 
-    bool verify_leap_second_scheduled(const DCF77::time_data_t &now) {
+    bool verify_leap_second_scheduled(const DCF77::time_data_t &now, const bool assume_leap_second) {
         // If day or month are unknown we default to "no leap second" because this is alway a very good guess.
         // If we do not know for sure we are either acquiring a lock right now --> we will easily recover from a wrong guess
         // or we have very noisy data --> the leap second bit is probably noisy as well --> we should assume the most likely case
 
-        bool leap_second_scheduled = now.leap_second_scheduled && now.day.val == 0x01;
+        bool leap_second_scheduled = now.day.val == 0x01 && (assume_leap_second || now.leap_second_scheduled);
 
         // leap seconds will always happen
         // after 23:59:59 UTC and before 00:00 UTC == 01:00 CET == 02:00 CEST
@@ -558,6 +558,7 @@ namespace DCF77_Encoder {
         } else {
             leap_second_scheduled = false;
         }
+
         return leap_second_scheduled;
     }
 
@@ -566,7 +567,7 @@ namespace DCF77_Encoder {
         autoset_timezone(now);
         autoset_timezone_change_scheduled(now);
         // we can not compute leap seconds, we can only verify if they might happen
-        now.leap_second_scheduled = verify_leap_second_scheduled(now);
+        now.leap_second_scheduled = verify_leap_second_scheduled(now, false);
     }
 
     void advance_second(DCF77::time_data_t &now) {
@@ -2960,23 +2961,19 @@ namespace DCF77_Frequency_Control {
         deviation = compute_phase_deviation(decoded_time.second, decoded_time.minute.digit.lo);
 
         if (decoded_time.second == calibration_second) {
-            const bool leap_second_scheduled = decoded_time.leap_second_scheduled;
-            // This is dirty: we overwrite a constant. This will only
-            // work because we are in an interrupt and will not be interrupted.
-            // We restore the constant immediately after the check.
-            // Unfortunately this is necessary because we might be
-            // in an unqualified state and thus the leap second information may be wrong.
-            // However if we fail to detect this calibration will be wrong by
-            // 1 second.
-            ((DCF77::time_data_t)decoded_time).leap_second_scheduled = true;
-            if (DCF77_Encoder::verify_leap_second_scheduled(decoded_time)) {
+            // We might be in an unqualified state and thus the leap second information
+            // we have might be wrong.
+            // However if we fail to detect an actual leap second, calibration will be wrong
+            // by 1 second.
+            // Therefore we assume a leap second and verify_leap_second_scheduled()
+            // will tell us if our assumption could actually be a leap second.
+            if (DCF77_Encoder::verify_leap_second_scheduled(decoded_time, true)) {
                 // Leap seconds will mess up our frequency computations.
                 // Handling them properly would be slightly more complicated.
                 // Since leap seconds may only happen every 3 months we just
                 // stop calibration for leap seconds and do nothing else.
                 calibration_state.running = false;
             }
-            ((DCF77::time_data_t)decoded_time).leap_second_scheduled = leap_second_scheduled;
 
             if (calibration_state.running) {
                 if (calibration_state.qualified) {
