@@ -90,6 +90,8 @@ namespace DCF77_Clock {
     void get_current_time(time_t &now);
     // non-blocking, reads current second
     void read_current_time(time_t &now);
+    // non-blocking, reads current second+1
+    void read_future_time(time_t &now_plus_1s);
 
     void auto_persist();  // this is slow and messes with the interrupt flag, do not call during interrupt handling
 

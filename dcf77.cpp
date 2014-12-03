@@ -2849,6 +2849,14 @@ namespace DCF77_Clock {
         convert_time(current_time, now);
     };
 
+    void read_future_time(time_t &now_plus_1s) {
+        DCF77::time_data_t current_time;
+        DCF77_Clock_Controller::read_current_time(current_time);
+        DCF77_Encoder::advance_second(current_time);
+
+        convert_time(current_time, now_plus_1s);
+    }
+
     void print(time_t time) {
         BCD::print(time.year);
         Serial.print('-');
