@@ -16,6 +16,25 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see http://www.gnu.org/licenses/
 
+#define GCC_VERSION (__GNUC__ * 10000 \
+    + __GNUC_MINOR__ * 100 \
+    + __GNUC_PATCHLEVEL__)
+#if GCC_VERSION < 40503
+// Arduino 1.0.0 - 1.0.6 come with an outdated version of avr-gcc.
+// Arduino 1.5.8 comes with a ***much*** better avr-gcc. The library
+// will compile but fail to execute properly if compiled with an
+// outdated avr-gcc. So here we stop here if the compiler is outdated.
+
+// Visit the compatibility section here:
+//     http://blog.blinkenlight.net/experiments/dcf77/dcf77-library/
+// for more details.
+#error Your compiler is outdated.
+#error Absolute minimum recommended version is avr-gcc 4.5.3.
+#error Use  avr-gcc --version  from the command line to verify your compiler version.
+#error Arduino 1.0.0 - 1.0.6 ship with outdated compilers.
+#error Arduino 1.5.8 (avr-gcc 4.8.1) and above are recommended.
+#endif
+
 #ifndef dcf77_h
 #define dcf77_h
 
