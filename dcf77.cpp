@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2014 Udo Klein
+//  Copyright 2015 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -3190,7 +3190,18 @@ namespace DCF77_1_Khz_Generator {
         return pp16m;
     }
 
-    void init_timer_2() {
+    void init_timer() {
+#if defined(__AVR_ATmega32U4__)
+        // Timer 3 CTC mode, prescaler 64
+        TCCR3B = (0<<WGM33) | (1<<WGM32) | (1<<CS31) | (1<<CS30);
+        TCCR3A = (0<<WGM31) | (0<<WGM30);
+
+        // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
+        OCR3A = 249;
+
+        // enable Timer 3 interrupts
+        TIMSK3 = (1<<OCIE3A);
+#else
         // Timer 2 CTC mode, prescaler 64
         TCCR2B = (0<<WGM22) | (1<<CS22);
         TCCR2A = (1<<WGM21) | (0<<WGM20);
@@ -3200,6 +3211,7 @@ namespace DCF77_1_Khz_Generator {
 
         // enable Timer 2 interrupts
         TIMSK2 = (1<<OCIE2A);
+#endif
     }
 
     void stop_timer_0() {
@@ -3209,7 +3221,7 @@ namespace DCF77_1_Khz_Generator {
     }
 
     void setup(const DCF77_Clock::input_provider_t input_provider) {
-        init_timer_2();
+        init_timer();
         stop_timer_0();
         the_input_provider = input_provider;
     }
@@ -3221,22 +3233,40 @@ namespace DCF77_1_Khz_Generator {
             cumulated_phase_deviation -= 64000;
             // cumulated drift exceeds 1 timer step (4 microseconds)
             // drop one timer step to realign
+#if defined(__AVR_ATmega32U4__)
+            OCR3A = 248;
+#else
             OCR2A = 248;
+#endif
         } else
         if (cumulated_phase_deviation <= -64000) {
             // cumulated drift exceeds 1 timer step (4 microseconds)
             // insert one timer step to realign
             cumulated_phase_deviation += 64000;
+#if defined(__AVR_ATmega32U4__)
+            OCR3A = 250;
+#else
             OCR2A = 250;
+#endif
         } else {
             // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
+#if defined(__AVR_ATmega32U4__)
+            OCR3A = 249;
+#else
             OCR2A = 249;
+#endif
         }
 
         DCF77_Clock_Controller::process_1_kHz_tick_data(the_input_provider());
     }
 }
 
+#if defined(__AVR_ATmega32U4__)
+ISR(TIMER3_COMPA_vect) {
+    DCF77_1_Khz_Generator::isr_handler();
+}
+#else
 ISR(TIMER2_COMPA_vect) {
     DCF77_1_Khz_Generator::isr_handler();
 }
+#endif

@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2014 Udo Klein
+//  Copyright 2015 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -34,6 +34,23 @@ void stopTimer0() {
     TIMSK0 = 0;
 }
 
+#if defined(__AVR_ATmega32U4__)
+ISR(TIMER3_COMPA_vect) {
+    process_one_sample();
+}
+
+void initTimer3() {
+    // Timer 3 CTC mode, prescaler 64
+    TCCR3B = (0<<WGM33) | (1<<WGM32) | (1<<CS31) | (1<<CS30);
+    TCCR3A = (0<<WGM31) | (0<<WGM30);
+
+    // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
+    OCR3A = 249;
+
+    // enable Timer 3 interrupts
+    TIMSK3 = (1<<OCIE3A);
+}
+#else
 ISR(TIMER2_COMPA_vect) {
     process_one_sample();
 }
@@ -49,6 +66,7 @@ void initTimer2() {
     // enable Timer 2 interrupts
     TIMSK2 = (1<<OCIE2A);
 }
+#endif
 
 uint8_t sample_input_pin() {
     const uint8_t sampled_data = dcf77_inverted_samples ^
@@ -116,7 +134,11 @@ void setup() {
         digitalWrite(pin, LOW);
     }
 
+#if defined(__AVR_ATmega32U4__)
+    initTimer3();
+#else
     initTimer2();
+#endif
     stopTimer0();
 }
 
