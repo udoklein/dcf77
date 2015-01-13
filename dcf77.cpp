@@ -3223,9 +3223,9 @@ namespace DCF77_1_Khz_Generator {
             // drop one timer step to realign
             OCR2A = 248;
         } else if (cumulated_phase_deviation <= -64000) {
+            cumulated_phase_deviation += 64000;
             // cumulated drift exceeds 1 timer step (4 microseconds)
             // insert one timer step to realign
-            cumulated_phase_deviation += 64000;
             OCR2A = 250;
         } else {
             // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
