@@ -128,6 +128,8 @@ void output_handler(const DCF77_Clock::time_t &decoded_time) {
     now.leap_second_scheduled     = decoded_time.leap_second_scheduled;
     now.timezone_change_scheduled = decoded_time.timezone_change_scheduled;
 
+    DCF77_Encoder::advance_minute(now);
+
     tick = DCF77_Encoder::get_current_signal(now);
 }
 
