@@ -37,9 +37,9 @@ const uint8_t dcf77_inverted_semi_synthesized_pin = 15;
 const uint8_t dcf77_semi_synthesized_diff_pin     = 14;
 
 const bool provide_synthesized_output = true;
-const uint8_t dcf77_synthesized_pin          = 5;
-const uint8_t dcf77_inverted_synthesized_pin = 4;
-const uint8_t dcf77_synthesized_diff_pin     = 3;
+const uint8_t dcf77_synthesized_pin          = 6;
+const uint8_t dcf77_inverted_synthesized_pin = 5;
+const uint8_t dcf77_synthesized_diff_pin     = 4;
 
 const uint8_t dcf77_second_pulse_pin = 10;
 
