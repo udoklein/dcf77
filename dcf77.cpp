@@ -2420,7 +2420,7 @@ namespace DCF77_Clock_Controller {
             DCF77_Day_Decoder::setup();
         }
 
-        reset_successors |= (DCF77_Hour_Decoder::get_quality_factor() == 0);
+        reset_successors |= (DCF77_Day_Decoder::get_quality_factor() == 0);
         if (reset_successors) {
             DCF77_Month_Decoder::setup();
         }
