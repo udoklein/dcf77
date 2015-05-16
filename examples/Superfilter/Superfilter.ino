@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2014, 2015 Udo Klein
+//  Copyright 2015 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ uint8_t sample_input_pin() {
         tick == DCF77::sync_mark  ?  0:
                                            // tick == DCF77::undefined --> default handling
                                            // allow signal to pass for the first 200ms of each second
-        (ms_counter <=200 && sampled_data) ||
+                                          (ms_counter <=200 && sampled_data) ||
                                            // if the clock has valid time data then undefined ticks
                                            // are data bits --> first 100ms of signal must be high
                                            ms_counter <100;
