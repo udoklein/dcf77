@@ -18,7 +18,6 @@
 
 #include <dcf77.h>
 
-
 const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = 19; // A5
 const uint8_t dcf77_inverted_samples = 1;
@@ -43,8 +42,16 @@ const uint8_t dcf77_synthesized_diff_pin     = 4;
 
 const uint8_t dcf77_second_pulse_pin = 10;
 
-
 const uint8_t dcf77_signal_good_indicator_pin = 3;
+
+// If this is set to true meteo data will be replaced by "long ticks".
+// If your project does not need meteo data setting this to "true"
+// might further improve the reception of your dcf77 project.
+//
+// If your project does not decode meteo data I recommend to set this
+// to true.
+const bool wipe_unknown_data = false;
+
 
 volatile uint16_t ms_counter = 0;
 volatile DCF77::tick_t tick = DCF77::undefined;
@@ -74,8 +81,11 @@ uint8_t sample_input_pin() {
     const uint8_t synthesized_signal =
         tick == DCF77::long_tick  ? ms_counter < 200:
         tick == DCF77::short_tick ? ms_counter < 100:
-        tick == DCF77::sync_mark  ?  0:
+        tick == DCF77::sync_mark  ? 0:
                                            // tick == DCF77::undefined --> default handling
+        wipe_unknown_data         ? ms_counter < 200:
+                                           // rudimentary filtering of "unknown data"
+                                           // that is bits 1-14, aka "meteo data"
                                            // allow signal to pass for the first 200ms of each second
                                           (ms_counter <=200 && sampled_data) ||
                                            // if the clock has valid time data then undefined ticks
