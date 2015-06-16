@@ -1576,7 +1576,7 @@ namespace DCF77_Second_Decoder {
     using namespace DCF77;
 
     const uint8_t seconds_per_minute = 60;
-    // this is a trick threshold
+    // this is a tricky threshold
     //    lower it to get a faster second lock
     //    but then risk to garble the successive stages during startup
     //    --> to low and total startup time will increase
@@ -1774,7 +1774,7 @@ namespace DCF77_Second_Decoder {
         bins.tick = bins.tick<seconds_per_minute-1? bins.tick+1: 0;
 
         // determine sync lock
-        if (bins.max - bins.noise_max <=lock_threshold ||
+        if (bins.max - bins.noise_max <= lock_threshold ||
             get_second() == 3) {
             // after a lock is acquired this happens only once per minute and it is
             // reasonable cheap to process,
