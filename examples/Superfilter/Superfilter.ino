@@ -101,7 +101,7 @@ uint8_t sample_input_pin() {
                (clock_state, sampled_data, synthesized_signal);
 
     set_output<provide_synthesized_output, DCF77_Clock::free,
-               dcf77_synthesized_pin, dcf77_inverted_synthesized_pin,  dcf77_synthesized_diff_pin>
+               dcf77_synthesized_pin, dcf77_inverted_synthesized_pin, dcf77_synthesized_diff_pin>
                (clock_state, sampled_data, synthesized_signal);
 
 
@@ -137,6 +137,11 @@ void output_handler(const DCF77_Clock::time_t &decoded_time) {
     now.uses_summertime           = decoded_time.uses_summertime;
     now.leap_second_scheduled     = decoded_time.leap_second_scheduled;
     now.timezone_change_scheduled = decoded_time.timezone_change_scheduled;
+
+    now.undefined_minute_output                         = false;
+    now.undefined_uses_summertime_output                = false;
+    now.undefined_abnormal_transmitter_operation_output = false;
+    now.undefined_timezone_change_scheduled_output      = false;
 
     DCF77_Encoder::advance_minute(now);
 
