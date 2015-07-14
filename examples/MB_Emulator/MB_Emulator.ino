@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2014 Udo Klein
+//  Copyright 2015 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -35,6 +35,13 @@ const uint8_t dcf77_signal_good_indicator_pin = 13;
 
 const uint8_t dcf77_monitor_pin = A4;  // A4 == d18
 
+#if defined(__AVR__)
+    #define print(...)   Serial.print(__VA_ARGS__)
+    #define println(...) Serial.println(__VA_ARGS__)
+#else
+    #define print(...)   SerialUSB.print(__VA_ARGS__)
+    #define println(...) SerialUSB.println(__VA_ARGS__)
+#endif
 
 uint8_t sample_input_pin() {
     const uint8_t sampled_data =
@@ -45,42 +52,26 @@ uint8_t sample_input_pin() {
     return sampled_data;
 }
 
-void workaround_to_enable_7e2_serial_communication() {
-    // At this time my clock will only compile successfully with Arduino 1.0.
-    // Attention: it seems to compiler with higher versions but the result
-    // does not process correctly.
-
-    // NTPD wants serial transmission mode 7E2 for the Meinberg setup.
-    // Unfortunatly this  is only available with Arduino 1.0.1 or higher.
-    // My current workaround is to overwrite the Control and Status
-    // register after initializing serial communication.
-    
-    // So instead of an upgrade to a higher Arduino version the line
-    // below has to suffice.
-    UCSR0C = 0x2C;
-}
-
-
 void setup() {
-    using namespace DCF77_Encoder;
-
-    Serial.begin(9600);
-    workaround_to_enable_7e2_serial_communication();
-    //Serial.begin(115200);
-    Serial.println();
-    Serial.println(F("Meinberg Emulator"));
-    Serial.println(F("(c) Udo Klein 2014"));
-    Serial.println(F("www.blinkenlight.net"));
-    Serial.println();
-    Serial.print(F("Sample Pin:    ")); Serial.println(dcf77_sample_pin);
-    Serial.print(F("Inverted Mode: ")); Serial.println(dcf77_inverted_samples);
-    Serial.print(F("Analog Mode:   ")); Serial.println(dcf77_analog_samples);
-    Serial.print(F("Monitor Pin:   ")); Serial.println(dcf77_monitor_pin);
-    Serial.print(F("Signal Good Indicator Pin:")); Serial.println(dcf77_signal_good_indicator_pin);
-    Serial.println();
-    Serial.println();
-    Serial.println(F("Initializing..."));
-    Serial.println();
+    #if defined(__AVR__)
+    Serial.begin(9600, SERIAL_7E2);
+    #else
+    SerialUSB.begin(9600, SERIAL_7E2);
+    #endif
+    println();
+    println(F("Meinberg Emulator V3.0"));
+    println(F("(c) Udo Klein 2015"));
+    println(F("www.blinkenlight.net"));
+    println();
+    print(F("Sample Pin:    ")); println(dcf77_sample_pin);
+    print(F("Inverted Mode: ")); println(dcf77_inverted_samples);
+    print(F("Analog Mode:   ")); println(dcf77_analog_samples);
+    print(F("Monitor Pin:   ")); println(dcf77_monitor_pin);
+    print(F("Signal Good Indicator Pin: ")); println(dcf77_signal_good_indicator_pin);
+    println();
+    println();
+    println(F("Initializing..."));
+    println();
 
     pinMode(dcf77_monitor_pin, OUTPUT);
 
@@ -95,62 +86,62 @@ void setup() {
 }
 
 void paddedPrint(BCD::bcd_t n) {
-    Serial.print(n.digit.hi);
-    Serial.print(n.digit.lo);
+    print(n.digit.hi);
+    print(n.digit.lo);
 }
 
 void loop() {
     const char STX = 2;
     const char ETX = 3;
 
-    DCF77_Clock::time_t now;
+    Clock::time_t now;
 
     DCF77_Clock::get_current_time(now);
     if (now.month.val > 0) {
 
-        //Serial.println();
-        Serial.print(STX);
+        //println();
+        print(STX);
 
-        Serial.print("D:");
+        print("D:");
         paddedPrint(now.day);
-        Serial.print('.');
+        print('.');
         paddedPrint(now.month);
-        Serial.print('.');
+        print('.');
         paddedPrint(now.year);
-        Serial.print(';');
+        print(';');
 
-        Serial.print("T:");
-        Serial.print(now.weekday.digit.lo);
-        Serial.print(';');
+        print("T:");
+        print(now.weekday.digit.lo);
+        print(';');
 
-        Serial.print("U:");
+        print("U:");
         paddedPrint(now.hour);
-        Serial.print('.');
+        print('.');
         paddedPrint(now.minute);
-        Serial.print('.');
+        print('.');
         paddedPrint(now.second);
-        Serial.print(';');
+        print(';');
 
         uint8_t state = DCF77_Clock::get_clock_state();
-        Serial.print(
-            state == DCF77::useless || state == DCF77::dirty? '#'  // not synced
-                                                            : ' '  // good
+        print(
+            state == Clock::useless || state == Clock::dirty? '#'  // not synced
+                                                              : ' '        // good
         );
 
-        Serial.print(
-            state == DCF77::synced || state == DCF77::locked? ' '  // DCF77
+        print(
+            state == Clock::synced || state == Clock::locked? ' '  // DCF77
                                                             : '*'  // crystal clock
         );
 
-        digitalWrite(dcf77_signal_good_indicator_pin, state >= DCF77::locked);
+        digitalWrite(dcf77_signal_good_indicator_pin, state >= Clock::locked);
 
-        Serial.print(now.uses_summertime? 'S': ' ');
-        Serial.print(
+        print(now.uses_summertime? 'S': ' ');
+        print(
             now.timezone_change_scheduled? '!':
             now.leap_second_scheduled?     'A':
                                            ' '
         );
 
-        Serial.print(ETX);
+        print(ETX);
     }
 }

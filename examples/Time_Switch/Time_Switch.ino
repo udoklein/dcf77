@@ -364,7 +364,7 @@ namespace Alarm_Timer {
             (a.second  == b.second);
     }
 
-    boolean equal_day_and_time(const day_and_time_t t, const DCF77_Clock::time_t & now) {
+    boolean equal_day_and_time(const day_and_time_t t, const Clock::time_t & now) {
         return
             (t.weekday == now.weekday) &&
             (t.hour    == now.hour)        &&
@@ -391,7 +391,7 @@ namespace Alarm_Timer {
     }
 
     boolean is_trigger_1_before_trigger_2(
-        const DCF77_Clock::time_t & now,
+        const Clock::time_t & now,
         const day_and_time_t      & t1,
         const day_and_time_t      & t2
     ) {
@@ -540,7 +540,7 @@ namespace Alarm_Timer {
         return result;
     }
 
-    day_and_time_t get_best_approximation(const DCF77_Clock::time_t & now,
+    day_and_time_t get_best_approximation(const Clock::time_t & now,
                                           const alarm_t             & alarm) {
         day_and_time_t best;
 
@@ -593,7 +593,7 @@ namespace Alarm_Timer {
         return best;
     }
 
-    channels_t trigger(const DCF77_Clock::time_t & now) {
+    channels_t trigger(const Clock::time_t & now) {
         boolean start_next_group = true;
 
         day_and_time_t best_trigger;
@@ -634,7 +634,7 @@ namespace Alarm_Timer {
 
 
 namespace ISR {
-   volatile uint16_t tick;
+    volatile uint16_t tick;
 
     uint8_t sample_input_pin() {
         ++tick;
@@ -685,7 +685,7 @@ namespace ISR {
         flush_output();
     }
 
-    void output_handler(const DCF77_Clock::time_t &decoded_time) {
+    void output_handler(const Clock::time_t &decoded_time) {
         tick = 0;
         start_of_second = true;
 
@@ -936,7 +936,7 @@ namespace parser {
             }
 
             case 'v': { // view
-                static DCF77_Clock::time_t test_time;
+                static Clock::time_t test_time;
 
                 // parse weekday
                 YIELD_NEXT_CHAR;
@@ -1325,8 +1325,9 @@ namespace parser {
 }
 
 uint8_t lock_progress() {
-    DCF77_Clock_Controller::clock_quality_factor_t quality;
-    DCF77_Clock_Controller::get_quality_factor(quality);
+    typedef Internal::DCF77_Clock_Controller<Internal::DCF77_Frequency_Control> Clock_Controller;
+    Clock_Controller::clock_quality_factor_t quality;
+    Clock_Controller::get_quality_factor(quality);
 
     return
         (quality.phase   > 0) +
@@ -1340,22 +1341,6 @@ uint8_t lock_progress() {
 }
 
 void setup() {
-    using namespace DCF77_Encoder;
-
-    Serial.begin(115200);
-    Serial.println();
-    Serial.println(F("DCF77 Timeswitch V1.0"));
-    Serial.println(F("(c) Udo Klein 2015"));
-    Serial.println(F("www.blinkenlight.net"));
-    Serial.println();
-    Serial.print(F("Sample Pin:    ")); Serial.println(dcf77_sample_pin);
-    Serial.print(F("Inverted Mode: ")); Serial.println(dcf77_inverted_samples);
-    Serial.print(F("Analog Mode:   ")); Serial.println(dcf77_analog_samples);
-    Serial.print(F("Monitor Pin:   ")); Serial.println(dcf77_monitor_pin);
-    Serial.println();
-    Serial.println();
-    Serial.println(F("Initializing..."));
-
     pinMode(dcf77_monitor_pin, OUTPUT);
 
     pinMode(dcf77_sample_pin, INPUT);
@@ -1370,18 +1355,35 @@ void setup() {
     DCF77_Clock::set_input_provider(ISR::sample_input_pin);
     DCF77_Clock::set_output_handler(ISR::output_handler);
 
+
+    Serial.begin(115200);
+    Serial.println();
+    Serial.println(F("DCF77 Timeswitch V3.0"));
+    Serial.println(F("(c) Udo Klein 2015"));
+    Serial.println(F("www.blinkenlight.net"));
+    Serial.println();
+    Serial.print(F("Sample Pin:    ")); Serial.println(dcf77_sample_pin);
+    Serial.print(F("Inverted Mode: ")); Serial.println(dcf77_inverted_samples);
+    Serial.print(F("Analog Mode:   ")); Serial.println(dcf77_analog_samples);
+    Serial.print(F("Monitor Pin:   ")); Serial.println(dcf77_monitor_pin);
+    Serial.print(F("Drift Adjust:  ")); Serial.println(Internal::Generic_1_kHz_Generator::read_adjustment());
+    Serial.println();
+    Serial.println();
+    Serial.println(F("Initializing..."));
+
+
     eeprom::setup();
     eeprom::dump_all();
 
     // Wait till clock is synced, depending on the signal quality this may take
     // rather long. About 5 minutes with a good signal, 30 minutes or longer
     // with a bad signal
-    for (uint8_t state = DCF77::useless;
-         state == DCF77::useless || state == DCF77::dirty;
+    for (uint8_t state = Clock::useless;
+         state == Clock::useless || state == Clock::dirty;
          state = DCF77_Clock::get_clock_state()) {
 
         // wait for next sec
-        DCF77_Clock::time_t now;
+        Clock::time_t now;
         DCF77_Clock::get_current_time(now);
 
         if (!parser::parser_controled_output()) {
@@ -1408,20 +1410,20 @@ void loop() {
     if (ISR::start_of_second) {
         ISR::start_of_second = false;
 
-        DCF77_Clock::time_t now_plus_1s;
+        Clock::time_t now_plus_1s;
         DCF77_Clock::read_future_time(now_plus_1s);
         ISR::stage_output(Alarm_Timer::trigger(now_plus_1s));
-        DCF77_Clock::time_t now;
+        Clock::time_t now;
         DCF77_Clock::read_current_time(now);
         if (now.month.val > 0) {
             const uint8_t state = DCF77_Clock::get_clock_state();
-            if (state != DCF77::useless) {
+            if (state != Clock::useless) {
                 if (!parser::parser_controled_output()) {
                     switch (state) {
-                        case DCF77::useless: Serial.print(F("useless")); break;
-                        case DCF77::dirty:   Serial.print(F("dirty: ")); break;
-                        case DCF77::synced:  Serial.print(F("synced:")); break;
-                        case DCF77::locked:  Serial.print(F("locked:")); break;
+                        case Clock::useless: Serial.print(F("useless")); break;
+                        case Clock::dirty:   Serial.print(F("dirty: ")); break;
+                        case Clock::synced:  Serial.print(F("synced:")); break;
+                        case Clock::locked:  Serial.print(F("locked:")); break;
                     }
 
                     Serial.print(F(" 20"));

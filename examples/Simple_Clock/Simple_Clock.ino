@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2014 Udo Klein
+//  Copyright 2015 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -18,41 +18,60 @@
 
 #include <dcf77.h>
 
+#if defined(__AVR__)
 const uint8_t dcf77_analog_sample_pin = 5;
-const uint8_t dcf77_sample_pin = A5;  // A5 == d19
+const uint8_t dcf77_sample_pin = A5;       // A5 == d19
 const uint8_t dcf77_inverted_samples = 1;
 const uint8_t dcf77_analog_samples = 1;
 
-const uint8_t dcf77_monitor_pin = A4;  // A4 == d18
+const uint8_t dcf77_monitor_led = 18;  // A4 == d18
 
+uint8_t ledpin(const uint8_t led) {
+    return led;
+}
+#else
+const uint8_t dcf77_sample_pin = 53;
+const uint8_t dcf77_inverted_samples = 0;
+const uint8_t dcf77_monitor_led = 19;
+
+uint8_t ledpin(const uint8_t led) {
+    return led<14? led: led+(54-14);
+}
+#endif
 
 uint8_t sample_input_pin() {
     const uint8_t sampled_data =
+        #if defined(__AVR__)
         dcf77_inverted_samples ^ (dcf77_analog_samples? (analogRead(dcf77_analog_sample_pin) > 200)
                                                       : digitalRead(dcf77_sample_pin));
+        #else
+        dcf77_inverted_samples ^ digitalRead(dcf77_sample_pin);
+        #endif
 
-    digitalWrite(dcf77_monitor_pin, sampled_data);
+    digitalWrite(ledpin(dcf77_monitor_led), sampled_data);
     return sampled_data;
 }
 
 void setup() {
-    using namespace DCF77_Encoder;
+    using namespace Clock;
 
     Serial.begin(9600);
     Serial.println();
-    Serial.println(F("Simple DCF77 Clock V1.0"));
-    Serial.println(F("(c) Udo Klein 2014"));
+    Serial.println(F("Simple DCF77 Clock V3.0"));
+    Serial.println(F("(c) Udo Klein 2015"));
     Serial.println(F("www.blinkenlight.net"));
     Serial.println();
     Serial.print(F("Sample Pin:    ")); Serial.println(dcf77_sample_pin);
     Serial.print(F("Inverted Mode: ")); Serial.println(dcf77_inverted_samples);
+    #if defined(__AVR__)
     Serial.print(F("Analog Mode:   ")); Serial.println(dcf77_analog_samples);
-    Serial.print(F("Monitor Pin:   ")); Serial.println(dcf77_monitor_pin);
+    #endif
+    Serial.print(F("Monitor Pin:   ")); Serial.println(ledpin(dcf77_monitor_led));
     Serial.println();
     Serial.println();
     Serial.println(F("Initializing..."));
 
-    pinMode(dcf77_monitor_pin, OUTPUT);
+    pinMode(ledpin(dcf77_monitor_led), OUTPUT);
 
     pinMode(dcf77_sample_pin, INPUT);
     digitalWrite(dcf77_sample_pin, HIGH);
@@ -64,12 +83,12 @@ void setup() {
     // Wait till clock is synced, depending on the signal quality this may take
     // rather long. About 5 minutes with a good signal, 30 minutes or longer
     // with a bad signal
-    for (uint8_t state = DCF77::useless;
-         state == DCF77::useless || state == DCF77::dirty;
-         state = DCF77_Clock::get_clock_state()) {
+    for (uint8_t state = Clock::useless;
+        state == Clock::useless || state == Clock::dirty;
+        state = DCF77_Clock::get_clock_state()) {
 
         // wait for next sec
-        DCF77_Clock::time_t now;
+        Clock::time_t now;
         DCF77_Clock::get_current_time(now);
 
         // render one dot per second while initializing
@@ -89,15 +108,15 @@ void paddedPrint(BCD::bcd_t n) {
 }
 
 void loop() {
-    DCF77_Clock::time_t now;
+    Clock::time_t now;
 
     DCF77_Clock::get_current_time(now);
     if (now.month.val > 0) {
         switch (DCF77_Clock::get_clock_state()) {
-            case DCF77::useless: Serial.print(F("useless ")); break;
-            case DCF77::dirty:   Serial.print(F("dirty:  ")); break;
-            case DCF77::synced:  Serial.print(F("synced: ")); break;
-            case DCF77::locked:  Serial.print(F("locked: ")); break;
+            case Clock::useless: Serial.print(F("useless ")); break;
+            case Clock::dirty:   Serial.print(F("dirty:  ")); break;
+            case Clock::synced:  Serial.print(F("synced: ")); break;
+            case Clock::locked:  Serial.print(F("locked: ")); break;
         }
         Serial.print(' ');
 
