@@ -31,6 +31,7 @@ const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = A5;  // A5 == d19
 const uint8_t dcf77_inverted_samples = 1;
 const uint8_t dcf77_analog_samples = 1;
+const uint8_t dcf77_pull_up = 1;
 const uint8_t dcf77_signal_good_indicator_pin = 13;
 
 const uint8_t dcf77_monitor_pin = A4;  // A4 == d18
@@ -76,7 +77,7 @@ void setup() {
     pinMode(dcf77_monitor_pin, OUTPUT);
 
     pinMode(dcf77_sample_pin, INPUT);
-    digitalWrite(dcf77_sample_pin, HIGH);
+    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
 
     pinMode(dcf77_signal_good_indicator_pin, OUTPUT);
     digitalWrite(dcf77_signal_good_indicator_pin, LOW);
@@ -125,7 +126,7 @@ void loop() {
         uint8_t state = DCF77_Clock::get_clock_state();
         print(
             state == Clock::useless || state == Clock::dirty? '#'  // not synced
-                                                              : ' '        // good
+                                                            : ' '  // good
         );
 
         print(

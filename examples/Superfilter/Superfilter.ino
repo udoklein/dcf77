@@ -27,6 +27,8 @@ const uint8_t dcf77_analog_samples = false;
 const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = 19; // A5
 const uint8_t dcf77_inverted_samples = 0;
+const uint8_t dcf77_pull_up = 1;
+
 #if defined(__AVR__)
 #define ledpin(led) (led)
 #else
@@ -286,7 +288,7 @@ void setup_pins() {
     pinMode(dcf77_signal_good_indicator_pin, OUTPUT);
     pinMode(dcf77_second_pulse_pin, OUTPUT);
     pinMode(dcf77_sample_pin, INPUT);
-    digitalWrite(dcf77_sample_pin, HIGH);
+    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
 }
 
 void setup_clock() {

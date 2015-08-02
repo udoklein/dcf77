@@ -23,6 +23,7 @@ const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = A5;       // A5 == d19
 const uint8_t dcf77_inverted_samples = 1;
 const uint8_t dcf77_analog_samples = 1;
+const uint8_t dcf77_pull_up = 1;
 
 const uint8_t dcf77_monitor_led = 18;  // A4 == d18
 
@@ -32,6 +33,8 @@ uint8_t ledpin(const uint8_t led) {
 #else
 const uint8_t dcf77_sample_pin = 53;
 const uint8_t dcf77_inverted_samples = 0;
+const uint8_t dcf77_pull_up = 1;
+
 const uint8_t dcf77_monitor_led = 19;
 
 uint8_t ledpin(const uint8_t led) {
@@ -140,7 +143,7 @@ void setup() {
     pinMode(ledpin(dcf77_monitor_led), OUTPUT);
 
     pinMode(dcf77_sample_pin, INPUT);
-    digitalWrite(dcf77_sample_pin, HIGH);
+    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
 
     DCF77_Clock::setup();
     DCF77_Clock::set_input_provider(sample_input_pin);

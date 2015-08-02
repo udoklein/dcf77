@@ -27,6 +27,7 @@ const uint16_t EEPROM_base = 0x20;
 // which pin the clock module is connected to
 const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = 19; // A5
+const uint8_t dcf77_pull_up = 1;
 
 const uint8_t dcf77_inverted_samples = 1;
 
@@ -45,6 +46,7 @@ uint8_t ledpin(const uint8_t led) {
 // different pin settings for ARM based arduino
 const uint8_t dcf77_sample_pin = 53;
 const uint8_t dcf77_inverted_samples = 0;
+const uint8_t dcf77_pull_up = 1;
 
 const uint8_t pon_pin  = 51; // connect pon to ground !!!
 const uint8_t data_pin = 53;
@@ -631,7 +633,7 @@ void setup() {
 
     Serial.begin(115200);
 
-    pinMode(dcf77_sample_pin, INPUT);
+    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
     digitalWrite(dcf77_sample_pin, HIGH);
 
 #if defined(POLLIN_DCF77)
@@ -656,6 +658,7 @@ void setup() {
     Serial.println();
     Serial.print(F("Phase_lock_resolution [ticks per second]: "));
     Serial.println(Configuration::phase_lock_resolution);
+
     Serial.println();
     Serial.print(F("Sample Pin:     ")); Serial.println(dcf77_sample_pin);
     Serial.print(F("Inverted Mode:  ")); Serial.println(dcf77_inverted_samples);

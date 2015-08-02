@@ -23,6 +23,7 @@ const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = A5;  // A5 == d19
 const uint8_t dcf77_inverted_samples = 1;
 const uint8_t dcf77_analog_samples = 1;
+const uint8_t dcf77_pull_up = 1;
 
 const uint8_t dcf77_monitor_pin = A4;  // A4 == d18
 
@@ -1344,7 +1345,7 @@ void setup() {
     pinMode(dcf77_monitor_pin, OUTPUT);
 
     pinMode(dcf77_sample_pin, INPUT);
-    digitalWrite(dcf77_sample_pin, HIGH);
+    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
 
     for (uint8_t channel_pin = time_switch_channel_0_pin; channel_pin <time_switch_channel_0_pin+16; ++channel_pin) {
         pinMode(channel_pin, OUTPUT);

@@ -21,6 +21,7 @@
 // which pin the clock module is connected to
 const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = 19; // A5
+const uint8_t dcf77_pull_up = 1;
 
 // Automatic polarity detection reduces noise tolerance.
 // So if you expect poor reception, disable the auto detection
@@ -296,7 +297,7 @@ void help() {
 void setup() {
     pinMode(dcf77_monitor_pin, OUTPUT);
 
-    pinMode(dcf77_sample_pin, INPUT);
+    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
     digitalWrite(dcf77_sample_pin, HIGH);
 
     setup_output_pins();
