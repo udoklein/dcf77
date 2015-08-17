@@ -16,7 +16,12 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see http://www.gnu.org/licenses/
 
+#ifdef STANDALONE
+#include "standalone/standalone.h"
+#endif
+
 #include "dcf77.h"
+
 
 namespace Internal { namespace Debug {
     void debug_helper(char data) { sprint(data == 0? 'S': data == 1? '?': data - 2 + '0', 0); }
@@ -1820,6 +1825,15 @@ namespace Internal {
 
             Clock_Controller::process_1_kHz_tick_data(the_input_provider());
         }
+        #endif
+
+        #ifdef STANDALONE
+            void setup(const Clock::input_provider_t input_provider) {
+                the_input_provider=input_provider;
+            }
+            void isr_handler() {
+                Clock_Controller::process_1_kHz_tick_data(the_input_provider());
+            }
         #endif
     }
 }

@@ -48,7 +48,10 @@
 #define dcf77_h
 
 #include <stdint.h>
-#include "Arduino.h"
+
+#ifndef STANDALONE
+    #include "Arduino.h"
+#endif
 
 namespace Configuration {
     // The Configuration namespace holds the configuration of the clock library.
@@ -472,6 +475,7 @@ namespace Internal {
         // --> http://www.nongnu.org/avr-libc/user-manual/atomic_8h_source.html
         #define CRITICAL_SECTION for (int primask_save __attribute__((__cleanup__(__int_restore_irq))) = __int_disable_irq(), __n = 1; __n; __n = 0)
 
+    #elif defined(STANDALONE)
     #else
         #error Unsupported controller architecture
     #endif
