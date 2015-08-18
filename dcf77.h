@@ -770,26 +770,40 @@ namespace Internal {
                 }
             }
 
-            template <typename signal_t, signal_t signal_max, uint8_t signal_bitno_offset, uint8_t significant_bits, bool with_parity>
+            template <typename signal_t, signal_t signal_max, uint8_t signal_bitno_offset, uint8_t significant_bits, bool with_parity,
+                    bool zeroBased, bool lsbFirst>
             void BCD_binning(const uint8_t bitno_with_offset, const signal_t signal) {
                 using namespace Arithmetic_Tools;
                 using namespace BCD;
 
                 if (bitno_with_offset < signal_bitno_offset) { return; }
-                const uint8_t bitno = bitno_with_offset - signal_bitno_offset;
+                uint8_t bitno = bitno_with_offset - signal_bitno_offset;
 
                 const uint8_t number_of_bits = significant_bits + with_parity;
                 if (bitno > number_of_bits) { return; }
                 if (bitno == number_of_bits) { compute_max_index(); return; }
+
+                const bool isParityBit = with_parity && (bitno==significant_bits);
+
+                // For transmissions that receive msb first we must reverse the order, with the
+                // exception of the parity bit which may come last (although no example yet)
+                if (!lsbFirst) {
+                    // Parity always goes at the end
+                    if (!isParityBit) {
+                        // Leave as is since this is the final parity bit
+                        bitno = (significant_bits-1)-bitno;
+                    }
+                }
 
                 const data_t upper_bin_bound = TMP::equal<data_t, uint8_t>::val? 255 : (60 * number_of_bits * signal_max) / 2;
 
                 // for minutes, hours have parity and start counting at 0
                 // for days, weeks, month we have no parity and start counting at 1
                 // for years and decades we have no parity and start counting at 0
-                // TODO: more explicit offset handling
+
                 bcd_t candidate;
-                candidate.val = (with_parity || number_of_bins == 10)? 0x00: 0x01;
+                candidate.val = zeroBased ? 0x00: 0x01;
+
                 data_t min = upper_bin_bound;
                 data_t max = 0;
 
@@ -801,11 +815,9 @@ namespace Internal {
                         // score vs. bcd value determined by pass
                         score<data_t, signal_t, signal_max>(current_bin, signal, (candidate.val >> bitno) & 1);
                     } else
-                    if (with_parity) {
-                        if (bitno == significant_bits) {
-                            // score vs. parity bit
-                            score<data_t, signal_t, signal_max>(current_bin, signal, parity(candidate.val));
-                        }
+                    if (isParityBit) {
+                        // score vs. parity bit
+                        score<data_t, signal_t, signal_max>(current_bin, signal, parity(candidate.val));
                     }
 
                     maximize(max, current_bin);

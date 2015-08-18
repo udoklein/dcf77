@@ -230,7 +230,7 @@ namespace Internal {  // DCF77_Decade_Decoder
     */
 
     void DCF77_Decade_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 54, 4, false>(current_second, tick_value);
+        BCD_binning<uint8_t, 1, 54, 4, false, true, true>(current_second, tick_value);
     }
 
     void DCF77_Decade_Decoder::debug() {
@@ -265,7 +265,7 @@ namespace Internal { // DCF77_Year_Decoder
     }
 */
     void DCF77_Year_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 50, 4, false>(current_second, tick_value);
+        BCD_binning<uint8_t, 1, 50, 4, false, true, true>(current_second, tick_value);
 
         Decade_Decoder.process_tick(current_second, tick_value);
     }
@@ -330,7 +330,7 @@ namespace Internal {  // DCF77_Month_Decoder
     }
 */
     void DCF77_Month_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 45, 5, false>(current_second, tick_value);
+        BCD_binning<uint8_t, 1, 45, 5, false, false, true>(current_second, tick_value);
     }
 
     void DCF77_Month_Decoder::debug() {
@@ -355,7 +355,7 @@ namespace Internal {  // DCF77_Weekday_Decoder
 */
 
     void DCF77_Weekday_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 42, 3, false>(current_second, tick_value);
+        BCD_binning<uint8_t, 1, 42, 3, false, false, true>(current_second, tick_value);
 }
 
     void DCF77_Weekday_Decoder::debug() {
@@ -383,7 +383,7 @@ namespace Internal {  // DCF77_Day_Decoder
 */
 
     void DCF77_Day_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 36, 6, false>(current_second, tick_value);
+        BCD_binning<uint8_t, 1, 36, 6, false, false, true>(current_second, tick_value);
     }
 
     void DCF77_Day_Decoder::debug() {
@@ -412,7 +412,7 @@ namespace Internal {  // DCF77_Hour_Decoder
     }
 */
     void DCF77_Hour_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 29, 6, true>(current_second, tick_value);
+        BCD_binning<uint8_t, 1, 29, 6, true, true, true>(current_second, tick_value);
     }
 
     void DCF77_Hour_Decoder::debug() {
@@ -443,7 +443,7 @@ namespace Internal {  // DCF77_Minute_Decoder
 */
 
     void DCF77_Minute_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 21, 7, true>(current_second, tick_value);
+        BCD_binning<uint8_t, 1, 21, 7, true, true, true>(current_second, tick_value);
     }
 
     void DCF77_Minute_Decoder::debug() {
