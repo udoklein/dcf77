@@ -162,7 +162,7 @@ namespace Internal {  // DCF77_Flag_Decoder
         // timezone_change_scheduled will be set from hh:01 to HH:00
         // leap_second_scheduled will be set from hh:01 to HH:00
 
-        if (timezone_change_scheduled) {
+        if (get_timezone_change_scheduled()) {
             timezone_change_scheduled = 0;
             uses_summertime = 0;
         }
