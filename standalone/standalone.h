@@ -10,6 +10,7 @@
 
 #include <fstream>
 #include <stdlib.h>
+#include <stdint-gcc.h>
 
 
 extern int16_t TCCR2B;

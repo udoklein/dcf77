@@ -53,6 +53,113 @@
     #include "Arduino.h"
 #endif
 
+// Constants refering to data in time signal
+#ifndef MSF60
+    // DCF77 Offsets
+    #define OFFSET_MINUTE_1 (21)
+    #define OFFSET_MINUTE_2 (22)
+    #define OFFSET_MINUTE_4 (23)
+    #define OFFSET_MINUTE_8 (24)
+    #define OFFSET_MINUTE_10 (25)
+    #define OFFSET_MINUTE_20 (26)
+    #define OFFSET_MINUTE_40 (27)
+    #define OFFSET_MINUTE_PARITY (28)
+    #define OFFSET_MINUTE_PROCESS (29)
+
+    #define OFFSET_HOUR_1 (29)
+    #define OFFSET_HOUR_2 (30)
+    #define OFFSET_HOUR_4 (31)
+    #define OFFSET_HOUR_8 (32)
+    #define OFFSET_HOUR_10 (33)
+    #define OFFSET_HOUR_20 (34)
+    #define OFFSET_HOUR_PARITY (35)
+    #define OFFSET_HOUR_PROCESS (36)
+
+    #define OFFSET_DAY_1 (36)
+    #define OFFSET_DAY_2 (37)
+    #define OFFSET_DAY_4 (38)
+    #define OFFSET_DAY_8 (39)
+    #define OFFSET_DAY_10 (40)
+    #define OFFSET_DAY_20 (41)
+    #define OFFSET_DAY_PROCESS (42)
+
+    #define OFFSET_WEEKDAY_1 (42)
+    #define OFFSET_WEEKDAY_2 (43)
+    #define OFFSET_WEEKDAY_4 (44)
+    #define OFFSET_WEEKDAY_PROCESS (45)
+
+    #define OFFSET_MONTH_1 (45)
+    #define OFFSET_MONTH_2 (46)
+    #define OFFSET_MONTH_4 (47)
+    #define OFFSET_MONTH_8 (48)
+    #define OFFSET_MONTH_10 (49)
+    #define OFFSET_MONTH_PROCESS (50)
+
+    #define OFFSET_YEAR_1 (50)
+    #define OFFSET_YEAR_2 (51)
+    #define OFFSET_YEAR_4 (52)
+    #define OFFSET_YEAR_8 (53)
+    #define OFFSET_YEAR_PROCESS (54)
+
+    #define OFFSET_DECADE_1 (54)
+    #define OFFSET_DECADE_2 (55)
+    #define OFFSET_DECADE_4 (56)
+    #define OFFSET_DECADE_8 (57)
+    #define OFFSET_DECADE_PROCESS (58)
+#else
+    // MSF60 Offsets
+    #define OFFSET_MINUTE_1 (51)
+    #define OFFSET_MINUTE_2 (50)
+    #define OFFSET_MINUTE_4 (49)
+    #define OFFSET_MINUTE_8 (48)
+    #define OFFSET_MINUTE_10 (47)
+    #define OFFSET_MINUTE_20 (46)
+    #define OFFSET_MINUTE_40 (45)
+    #define OFFSET_MINUTE_PARITY (255)
+    #define OFFSET_MINUTE_PROCESS (52)
+
+    #define OFFSET_HOUR_1 (44)
+    #define OFFSET_HOUR_2 (43)
+    #define OFFSET_HOUR_4 (42)
+    #define OFFSET_HOUR_8 (41)
+    #define OFFSET_HOUR_10 (40)
+    #define OFFSET_HOUR_20 (39)
+    #define OFFSET_HOUR_PARITY (254)
+    #define OFFSET_HOUR_PROCESS (45)
+
+    #define OFFSET_DAY_1 (35)
+    #define OFFSET_DAY_2 (34)
+    #define OFFSET_DAY_4 (33)
+    #define OFFSET_DAY_8 (32)
+    #define OFFSET_DAY_10 (31)
+    #define OFFSET_DAY_20 (30)
+    #define OFFSET_DAY_PROCESS (36)
+
+    #define OFFSET_WEEKDAY_1 (38)
+    #define OFFSET_WEEKDAY_2 (37)
+    #define OFFSET_WEEKDAY_4 (36)
+    #define OFFSET_WEEKDAY_PROCESS (39)
+
+    #define OFFSET_MONTH_1 (29)
+    #define OFFSET_MONTH_2 (28)
+    #define OFFSET_MONTH_4 (27)
+    #define OFFSET_MONTH_8 (26)
+    #define OFFSET_MONTH_10 (25)
+    #define OFFSET_MONTH_PROCESS (30)
+
+    #define OFFSET_YEAR_1 (24)
+    #define OFFSET_YEAR_2 (23)
+    #define OFFSET_YEAR_4 (22)
+    #define OFFSET_YEAR_8 (21)
+    #define OFFSET_YEAR_PROCESS (25)
+
+    #define OFFSET_DECADE_1 (20)
+    #define OFFSET_DECADE_2 (19)
+    #define OFFSET_DECADE_4 (18)
+    #define OFFSET_DECADE_8 (17)
+    #define OFFSET_DECADE_PROCESS (21)
+#endif
+
 namespace Configuration {
     // The Configuration namespace holds the configuration of the clock library.
 
@@ -235,12 +342,27 @@ namespace Internal {
     }
 
     namespace DCF77 {
+
+#ifndef MSF60
         typedef enum {
             long_tick  = 3,
             short_tick = 2,
             undefined  = 1,
             sync_mark  = 0
         } tick_t;
+#else
+        typedef enum {
+            min_marker = 5,
+            undefined  = 4,
+            A1_B1      = 3,
+            A1_B0      = 2,
+            A0_B1      = 1,
+            A0_B0      = 0
+        } tick_t;
+#endif
+
+        // This six byte structure used for MSF60 and DCF77 bit stream
+        // comments for fields reflect DCF77 definitions
 
         typedef struct {
             uint8_t byte_0;  // bit 16-20  // flags
@@ -250,6 +372,14 @@ namespace Internal {
             uint8_t byte_4;  // bit 45-52  // month + bit 0-2 of year
             uint8_t byte_5;  // bit 52-58  // year + parity
         } serialized_clock_stream;
+
+#ifdef MSF60
+        typedef struct {
+            serialized_clock_stream A;
+            serialized_clock_stream B;
+        } serialized_clock_stream_pair;
+#endif
+
     }
 
     namespace TMP {
@@ -333,6 +463,12 @@ namespace Internal {
         bool undefined_abnormal_transmitter_operation_output: 1;
         bool undefined_timezone_change_scheduled_output     : 1;
 
+#ifdef MSF60
+        bool undefined_year_output          : 1;
+        bool undefined_day_output           : 1;
+        bool undefined_weekday_output       : 1;
+        bool undefined_time_output          : 1;
+#endif
 
         // What *** exactly *** is the semantics of the "Encoder"?
         // It only *** encodes *** whatever time is set
@@ -362,7 +498,12 @@ namespace Internal {
         // advance.
         void advance_second();
         DCF77::tick_t get_current_signal() const;
+
+#ifndef MSF60
         void get_serialized_clock_stream(DCF77::serialized_clock_stream &data) const;
+#else
+        void get_serialized_clock_stream(DCF77::serialized_clock_stream_pair &data) const;
+#endif
         void debug() const;
         void debug(const uint16_t cycles) const;
 
@@ -1004,8 +1145,10 @@ namespace Internal {
 
         TMP::uval_t<bin_count>::type count = 0;
         uint8_t decoded_data = 0;
+
+#ifndef MSF60
         void decode_200ms(const uint8_t input, const uint8_t bins_to_go)
-            __attribute__((always_inline)) {
+        __attribute__((always_inline)) {
             // will be called for each bin during the "interesting" 200 ms
             count += input;
             if (bins_to_go > bins_per_100ms) {
@@ -1026,8 +1169,83 @@ namespace Internal {
                 }
             }
         }
+#else
+        void decode_500ms(const uint8_t input, const uint8_t bins_to_go)
+            __attribute__((always_inline)) {
+            // will be called for each bin during the "interesting" 200 ms
 
+            static bool initial = false;
+            static bool trail = false;
+            static bool bitA = false;
+            static bool bitB = false;
+
+            // pass control further
+            // decoded_data: 0 --> A0_B0,
+            //               1 --> A0_B1,
+            //               2 --> A1_B0,
+            //               3 --> A1_B1,
+            //               4 --> undefined,
+            //               5 --> min_marker
+            count += input;
+
+            switch (bins_to_go) {
+
+                // Second marker 100ms in length (1ms - 100ms after start of second)
+                case 40:
+                    initial = (count > 5);
+                    count=0;
+                    break;
+
+                case 35:
+                    count=0;
+                    break;
+
+                    // Bit A 100ms in length after second marker (101ms - 200ms after start of second)
+                case 30:
+                    bitA = (count > 3);
+                    count = 0;
+                    break;
+
+                case 25:
+                    count=0;
+                    break;
+
+                    // Bit B 100ms in length after bit A (201ms - 300ms after start of second)
+                case 20:
+                    bitB = (count > 3);
+                    count = 0;
+                    break;
+
+                case 16:
+                    count=0;
+                    break;
+
+                    // this case reads 301ms - 400ms after start of second
+                case 0:
+                    trail = (count > 8);
+
+                    // If all five sections are High then must be MM
+                    if ((bitA && bitB)&&(initial && trail)) {
+                        decoded_data=5;
+                    } else if ((!initial)||(trail)) {
+                        decoded_data = 4;
+                    } else
+                    {
+                        decoded_data = (((uint8_t)bitA)<<1) + ((uint8_t)bitB);
+                    }
+
+                    Clock_Controller::process_single_tick_data((DCF77::tick_t) decoded_data);
+                    count = 0;
+                    break;
+            }
+        }
+#endif
+
+#ifndef MSF60
         TMP::uval_t<bins_per_200ms+1>::type bins_to_go = 0;
+#else
+        TMP::uval_t<bins_per_500ms+1>::type bins_to_go = 0;
+#endif
         void detector_stage_2(const uint8_t input)
               __attribute__((always_inline)) {
             const index_t current_bin = this->tick;
@@ -1039,16 +1257,25 @@ namespace Internal {
                     // last tick of current second
                     Clock_Controller::flush();
                     // start processing of bins
+#ifndef MSF60
                     bins_to_go = bins_per_200ms + 2*bins_per_10ms;
+#else
+                    bins_to_go = bins_per_500ms;
+#endif
                 }
             }
 
             if (bins_to_go > 0) {
                 --bins_to_go;
 
-                // this will be called for each bin in the "interesting" 200ms
+                // this will be called for each bin in the "interesting" 200ms for DCF
+                // or "interesting" 500mS for MSF
                 // this is also a good place for a "monitoring hook"
+#ifndef MSF60
                 decode_200ms(input, bins_to_go);
+#else
+                decode_500ms(input, bins_to_go);
+#endif
             }
         }
 
@@ -1186,6 +1413,12 @@ namespace Internal {
         int8_t leap_second_scheduled;
         int8_t date_parity;
 
+#ifdef MSF60
+        int8_t year_parity;     // 54B = Decade + Year 17A-24A
+        int8_t weekday_parity;  // 56B = Day-of-week 36A-38A
+        int8_t time_parity;     // 57B = Hour + Minute 39A-51A
+#endif
+
         void setup();
 
         void cummulate(int8_t &average, bool count_up);
@@ -1272,7 +1505,13 @@ namespace Internal {
         //    --> to low and total startup time will increase
         static const uint8_t lock_threshold = 12;
 
+#ifndef MSF60
         DCF77::serialized_clock_stream convolution_kernel;
+#else
+        DCF77::serialized_clock_stream_pair convolution_kernel;
+#endif
+
+
         // used to determine how many of the predicted bits are actually observed,
         // also used to indicate if convolution is already applied
         static const uint8_t convolution_binning_not_ready = 0xff;
@@ -1283,6 +1522,9 @@ namespace Internal {
         uint8_t get_prediction_match();
         void set_convolution_time(const DCF77_Encoder &now);
         void convolution_binning(const uint8_t tick_data);
+#ifdef MSF60
+        uint8_t get_previous_n_tick(const uint8_t n);
+#endif
         void sync_mark_binning(const uint8_t tick_data);
         uint8_t get_time_value();
         void binning(const DCF77::tick_t tick_data);
@@ -1854,6 +2096,7 @@ namespace Internal {
         // This is the callback of the Demodulator stage. The clock controller
         // assumes that this is called more or less once per second by the demodulator.
         // However it is understood that this may jitter depending on the signal quality.
+#ifndef MSF60
         static void process_single_tick_data(const DCF77::tick_t tick_data) {
             using namespace DCF77;
 
@@ -1914,7 +2157,63 @@ namespace Internal {
                 Year_Decoder.process_tick(now.second, tick_value);
             }
         }
+#else
+        static void process_single_tick_data(const DCF77::tick_t tick_data) {
+            using namespace DCF77;
 
+            DCF77_Encoder now;
+            set_DCF77_Encoder(now);
+
+            now.advance_second();
+
+            Second_Decoder.binning(tick_data);
+
+            if (now.second == 0) {
+                Minute_Decoder.advance_tick();
+                if (now.minute.val == 0x00) {
+
+                    // "while" takes automatically care of timezone change
+                    while (Hour_Decoder.get_time_value().val <= 0x23 &&
+                           Hour_Decoder.get_time_value().val != now.hour.val) {
+                        Hour_Decoder.advance_tick();
+                    }
+
+                    if (now.hour.val == 0x00) {
+                        if (Weekday_Decoder.get_time_value().val <= 0x07) {
+                            Weekday_Decoder.advance_tick();
+                        }
+
+                        // "while" takes automatically care of different month lengths
+                        while (Day_Decoder.get_time_value().val <= 0x31 &&
+                               Day_Decoder.get_time_value().val != now.day.val) {
+                            Day_Decoder.advance_tick();
+                        }
+
+                        if (now.day.val == 0x01) {
+                            if (Month_Decoder.get_time_value().val <= 0x12) {
+                                Month_Decoder.advance_tick();
+                            }
+                            if (now.month.val == 0x01) {
+                                if (now.year.val <= 0x99) { Year_Decoder.advance_tick(); }
+                            }
+                        }
+                    }
+                }
+            }
+
+            const bool tick_value_A = (tick_data == A1_B0 || tick_data == A1_B1 || tick_data == undefined) ? 1 : 0;
+            const bool tick_value_B = (tick_data == A0_B1 || tick_data == A1_B1 || tick_data == undefined) ? 1 : 0;
+
+            Flag_Decoder.process_tick(now.second, tick_value_B);
+            Minute_Decoder.process_tick(now.second, tick_value_A);
+            Hour_Decoder.process_tick(now.second, tick_value_A);
+            Weekday_Decoder.process_tick(now.second, tick_value_A);
+            Day_Decoder.process_tick(now.second, tick_value_A);
+            Month_Decoder.process_tick(now.second, tick_value_A);
+            Year_Decoder.process_tick(now.second, tick_value_A);
+
+        }
+#endif
 
         typedef Binning::lock_quality_tt<uint8_t> lock_quality_t;
         typedef struct {

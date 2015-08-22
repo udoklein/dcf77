@@ -39,8 +39,11 @@ int main() {
 
     DCF77_Clock::set_output_handler(&output_handler);
     Internal::Generic_1_kHz_Generator::setup(input_handler);
-
+#ifndef MSF60
     std::ifstream infile("standalone/capture_dcf77_20150816.csv");
+#else
+    std::ifstream infile("standalone/capture_msf60_20150804.csv");
+#endif
 
     uint8_t a;
     std::string line;
