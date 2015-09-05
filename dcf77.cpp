@@ -2367,6 +2367,54 @@ namespace Internal {
         }
         #endif
 
+        #if defined(__AVR_ATmega32U4__)
+        void init_timer_3() {
+            // Timer 3 CTC mode, prescaler 64
+            TCCR3B = (0<<WGM33) | (1<<WGM32) | (1<<CS31) | (1<<CS30);
+            TCCR3A = (0<<WGM31) | (0<<WGM30);
+
+            // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
+            OCR3A = 249;
+
+            // enable Timer 3 interrupts
+            TIMSK3 = (1<<OCIE3A);
+        }
+
+        void stop_timer_0() {
+            // ensure that the standard timer interrupts will not
+            // mess with msTimer2
+            TIMSK0 = 0;
+        }
+
+        void setup(const Clock::input_provider_t input_provider) {
+            init_timer_3();
+            stop_timer_0();
+            the_input_provider = input_provider;
+        }
+
+        void isr_handler() {
+            cumulated_phase_deviation += adjust_pp16m;
+            // 1 / 250 / 64000 = 1 / 16 000 000
+            if (cumulated_phase_deviation >= 64000) {
+                cumulated_phase_deviation -= 64000;
+                // cumulated drift exceeds 1 timer step (4 microseconds)
+                // drop one timer step to realign
+                OCR3A = 248;
+            } else
+            if (cumulated_phase_deviation <= -64000) {
+                // cumulated drift exceeds 1 timer step (4 microseconds)
+                // insert one timer step to realign
+                cumulated_phase_deviation += 64000;
+                OCR3A = 250;
+            } else {
+                // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
+                OCR3A = 249;
+            }
+
+            Clock_Controller::process_1_kHz_tick_data(the_input_provider());
+        }
+        #endif
+
         #if defined(__SAM3X8E__)
         void setup(const Clock::input_provider_t input_provider) {
             // no need to init systicks timer as it runs @1kHz anyway
@@ -2416,6 +2464,12 @@ namespace Internal {
     defined(__AVR_AT90USB646__) || \
     defined(__AVR_AT90USB1286__)
 ISR(TIMER2_COMPA_vect) {
+    Internal::Generic_1_kHz_Generator::isr_handler();
+}
+#endif
+
+#if defined(__AVR_ATmega32U4__)
+ISR(TIMER3_COMPA_vect) {
     Internal::Generic_1_kHz_Generator::isr_handler();
 }
 #endif
