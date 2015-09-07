@@ -1636,6 +1636,14 @@ namespace Internal {  // DCF77_Encoder
         data.byte_5 = set_bit(year.val>>3, 5, date_parity);
     }
 #else
+
+    uint8_t reverse(uint8_t b) {
+        b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+        b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+        b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+        return b;
+    }
+  
     void DCF77_Encoder::get_serialized_clock_stream( DCF77::serialized_clock_stream_pair &data) const {
         using namespace Arithmetic_Tools;
 

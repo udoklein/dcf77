@@ -72,8 +72,6 @@ public:
 
 extern DummySerial Serial;
 
-extern uint8_t reverse(uint8_t b);
-
 #define CRITICAL_SECTION
 
 #endif //DCF77_STANDALONE_H
