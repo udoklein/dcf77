@@ -869,7 +869,7 @@ namespace Internal {  // DCF77_Encoder
         // If we do not know for sure we are either acquiring a lock right now --> we will easily recover from a wrong guess
         // or we have very noisy data --> the leap second bit is probably noisy as well --> we should assume the most likely case
 
-        bool leap_second_scheduled = day.val == 0x01 && (assume_leap_second || leap_second_scheduled);
+        bool leap_second_scheduled = day.val == 0x01 && (assume_leap_second || this->leap_second_scheduled);
 
         // leap seconds will always happen
         // after 23:59:59 UTC and before 00:00 UTC == 01:00 CET == 02:00 CEST

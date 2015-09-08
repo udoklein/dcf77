@@ -304,10 +304,10 @@ namespace Internal {
             }
         }
 
-        inline void bounded_add(uint8_t &value, const uint8_t amount) __attribute__((always_inline));
-        inline void bounded_sub(uint8_t &value, const uint8_t amount) __attribute__((always_inline));
-        inline uint8_t bit_count(const uint8_t value) __attribute__((always_inline));
-        inline uint8_t parity(const uint8_t value) __attribute__((always_inline));
+        inline void bounded_add(uint8_t &value, const uint8_t amount);
+        inline void bounded_sub(uint8_t &value, const uint8_t amount);
+        inline uint8_t bit_count(const uint8_t value);
+        inline uint8_t parity(const uint8_t value);
 
         uint8_t set_bit(const uint8_t data, const uint8_t number, const uint8_t value);
     }
