@@ -456,7 +456,7 @@ namespace Internal {
 
         static inline int __int_disable_irq(void) {
             int primask;
-            asm volatile("mrs %0, PRIMASK\n" :: "r"(primask));
+            asm volatile("mrs %0, PRIMASK\n" : "=r"(primask));
             asm volatile("cpsid i\n");
             return primask & 1;
         }
