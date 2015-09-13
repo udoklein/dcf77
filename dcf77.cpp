@@ -237,7 +237,7 @@ namespace Internal {  // DCF77_Decade_Decoder
 namespace Internal { // DCF77_Year_Decoder
     void DCF77_Year_Decoder::advance_tick() {
         Binning::Decoder<uint8_t, 10>::advance_tick();
-        if (get_time_value().val == 0) {
+        if (Binning::Decoder<uint8_t, 10>::get_time_value().val == 0) {
             Decade_Decoder.advance_tick();
         }
     }
@@ -271,8 +271,11 @@ namespace Internal { // DCF77_Year_Decoder
         lock_quality_t decade_lock_quality;
         Decade_Decoder.get_quality(decade_lock_quality);
 
-        Arithmetic_Tools::minimize(lock_quality.lock_max, decade_lock_quality.lock_max);
-        Arithmetic_Tools::maximize(lock_quality.noise_max, decade_lock_quality.noise_max);
+        const uint8_t lock_max  = max(lock_quality.lock_max, decade_lock_quality.lock_max);
+        const uint8_t noise_max = lock_max - min(lock_quality.lock_max - lock_quality.noise_max,
+                                                 decade_lock_quality.lock_max - decade_lock_quality.noise_max);
+        lock_quality.lock_max  = lock_max;
+        lock_quality.noise_max = noise_max;
     }
 
     uint8_t DCF77_Year_Decoder::get_quality_factor() {
@@ -298,6 +301,12 @@ namespace Internal { // DCF77_Year_Decoder
     void DCF77_Year_Decoder::setup() {
         Binning::Decoder<uint8_t, 10>::setup();
         Decade_Decoder.setup();
+    }
+
+    void DCF77_Year_Decoder::dump() {
+        Binning::Decoder<uint8_t, 10>::dump();
+        Serial.print('/');
+        Decade_Decoder.dump();
     }
 
     void DCF77_Year_Decoder::debug() {
@@ -693,7 +702,7 @@ namespace Internal {  // DCF77_Encoder
     uint8_t DCF77_Encoder::days_per_month() const {
         switch (month.val) {
             case 0x02:
-                // valid till 31.12.2399
+                // valid till 31.12.2399, but not for year 2000
                 // notice year mod 4 == year & 0x03
                 return 28 + ((year.val != 0) && ((bcd_to_int(year) & 0x03) == 0)? 1: 0);
             case 0x01: case 0x03: case 0x05: case 0x07: case 0x08: case 0x10: case 0x12: return 31;
@@ -795,7 +804,7 @@ namespace Internal {  // DCF77_Encoder
             } else {
                 // last sunday of march
                 // decision depends on the current hour
-                uses_summertime = (hour.val > 2);
+                uses_summertime = (hour.val >= 2);
             }
         } else
             if (month.val < 0x10) {
@@ -837,7 +846,6 @@ namespace Internal {  // DCF77_Encoder
         // summer/wintertime change will always happen
         // at clearly defined hours
         // http://www.gesetze-im-internet.de/sozv/__2.html
-
         // in doubt have a look here: http://www.dcf77logs.de/
         if (day.val < 0x25 || get_weekday() != 0) {
             // timezone change may only happen at the last sunday of march / october
@@ -875,10 +883,10 @@ namespace Internal {  // DCF77_Encoder
         // after 23:59:59 UTC and before 00:00 UTC == 01:00 CET == 02:00 CEST
         if (month.val == 0x01) {
             leap_second_scheduled &= ((hour.val == 0x00 && minute.val != 0x00) ||
-                                    (hour.val == 0x01 && minute.val == 0x00));
+                                      (hour.val == 0x01 && minute.val == 0x00));
         } else if (month.val == 0x07 || month.val == 0x04 || month.val == 0x10) {
             leap_second_scheduled &= ((hour.val == 0x01 && minute.val != 0x00) ||
-                                    (hour.val == 0x02 && minute.val == 0x00));
+                                      (hour.val == 0x02 && minute.val == 0x00));
         } else {
             leap_second_scheduled = false;
         }
@@ -1130,12 +1138,12 @@ namespace Internal {  // DCF77_Encoder
                     year.val    > 0x99) { return undefined; }
 
                     result = parity(day.digit.lo)   ^
-                            parity(day.digit.hi)   ^
-                            parity(month.digit.lo) ^
-                            parity(month.digit.hi) ^
-                            parity(weekday.val)    ^
-                            parity(year.digit.lo)  ^
-                            parity(year.digit.hi); break;
+                             parity(day.digit.hi)   ^
+                             parity(month.digit.lo) ^
+                             parity(month.digit.hi) ^
+                             parity(weekday.val)    ^
+                             parity(year.digit.lo)  ^
+                             parity(year.digit.hi); break;
 
             case 59:
                 // special handling for leap seconds
@@ -1151,7 +1159,7 @@ namespace Internal {  // DCF77_Encoder
         return result? long_tick: short_tick;
     }
 
-    void DCF77_Encoder::get_serialized_clock_stream( DCF77::serialized_clock_stream &data) const {
+    void DCF77_Encoder::get_serialized_clock_stream(DCF77::serialized_clock_stream &data) const {
         using namespace Arithmetic_Tools;
 
         // bit 16-20  // flags
