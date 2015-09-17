@@ -133,7 +133,7 @@ namespace Internal {  // DCF77_Flag_Decoder
         date_parity = 0;
     }
 
-    void DCF77_Flag_Decoder::cummulate(int8_t &average, bool count_up) {
+    void DCF77_Flag_Decoder::cummulate(int8_t &average, const bool count_up) {
         if (count_up) {
             average += (average < 127);
         } else {
@@ -157,10 +157,10 @@ namespace Internal {  // DCF77_Flag_Decoder
         // timezone_change_scheduled will be set from hh:01 to HH:00
         // leap_second_scheduled will be set from hh:01 to HH:00
 
-        if (timezone_change_scheduled) {
-            timezone_change_scheduled = 0;
+        if (timezone_change_scheduled > 0) {
             uses_summertime = 0;
         }
+        timezone_change_scheduled = 0;
         leap_second_scheduled = 0;
     }
 
@@ -170,7 +170,7 @@ namespace Internal {  // DCF77_Flag_Decoder
     }
 
     bool DCF77_Flag_Decoder::get_uses_summertime() {
-        return uses_summertime > 0;
+        return uses_summertime >= 0;
     }
 
     bool DCF77_Flag_Decoder::get_abnormal_transmitter_operation() {
@@ -184,6 +184,11 @@ namespace Internal {  // DCF77_Flag_Decoder
     bool DCF77_Flag_Decoder::get_leap_second_scheduled() {
         return leap_second_scheduled > 0;
     }
+
+    uint8_t DCF77_Flag_Decoder::get_date_parity() {
+        return date_parity > 0;
+    }
+
 
     void DCF77_Flag_Decoder::get_quality(uint8_t &uses_summertime_quality,
                                          uint8_t &timezone_change_scheduled_quality,

@@ -304,10 +304,10 @@ namespace Internal {
             }
         }
 
-        inline void bounded_add(uint8_t &value, const uint8_t amount);
-        inline void bounded_sub(uint8_t &value, const uint8_t amount);
-        inline uint8_t bit_count(const uint8_t value);
-        inline uint8_t parity(const uint8_t value);
+        void bounded_add(uint8_t &value, const uint8_t amount);
+        void bounded_sub(uint8_t &value, const uint8_t amount);
+        uint8_t bit_count(const uint8_t value);
+        uint8_t parity(const uint8_t value);
 
         uint8_t set_bit(const uint8_t data, const uint8_t number, const uint8_t value);
     }
@@ -771,6 +771,8 @@ namespace Internal {
                 using namespace Arithmetic_Tools;
                 using namespace BCD;
 
+                // If bit positions are outside of the bit positions relevant for this decoder,
+                // then stop processing right at the start
                 if (bitno_with_offset < signal_bitno_offset) { return; }
                 const uint8_t bitno = bitno_with_offset - signal_bitno_offset;
 
@@ -910,8 +912,8 @@ namespace Internal {
         }
 
 
-        const uint32_t ticks_to_drift_one_tick       =  30000UL;
-        const uint32_t tuned_ticks_to_drift_one_tick = 300000UL;
+        static const uint32_t ticks_to_drift_one_tick       =  30000UL;
+        static const uint32_t tuned_ticks_to_drift_one_tick = 300000UL;
 
         // N times the clock precision shall be smaller than 1/resolution
         // how many seconds may be cummulated
@@ -1172,7 +1174,7 @@ namespace Internal {
 
         void setup();
 
-        void cummulate(int8_t &average, bool count_up);
+        static void cummulate(int8_t &average, const bool count_up);
 
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
 
@@ -1184,23 +1186,22 @@ namespace Internal {
         bool get_timezone_change_scheduled();
         bool get_leap_second_scheduled();
 
+        uint8_t get_date_parity();
+
         void get_quality(uint8_t &uses_summertime_quality,
-                        uint8_t &timezone_change_scheduled_quality,
-                        uint8_t &leap_second_scheduled_quality);
+                         uint8_t &timezone_change_scheduled_quality,
+                         uint8_t &leap_second_scheduled_quality);
 
         void debug();
     };
 
     struct DCF77_Decade_Decoder : public Binning::Decoder<uint8_t, 10> {
-        BCD::bcd_t decade_data;
-
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
     struct DCF77_Year_Decoder : public Binning::Decoder<uint8_t, 10> {
         DCF77_Decade_Decoder Decade_Decoder;
-        BCD::bcd_t year_data;
 
         void advance_tick();
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
@@ -1209,40 +1210,31 @@ namespace Internal {
         BCD::bcd_t get_time_value();
         void setup();
 
+        void dump();
         void debug();
     };
 
     struct DCF77_Month_Decoder : public Binning::Decoder<uint8_t, 12> {
-        BCD::bcd_t month_data;
-
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
     struct DCF77_Weekday_Decoder : public Binning::Decoder<uint8_t, 7> {
-        BCD::bcd_t weekday_data;
-
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
     struct DCF77_Day_Decoder : public Binning::Decoder<uint8_t, 31> {
-        BCD::bcd_t day_data;
-
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
     struct DCF77_Hour_Decoder : public Binning::Decoder<uint8_t, 24> {
-        BCD::bcd_t hour_data;
-
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
     struct DCF77_Minute_Decoder : public Binning::Decoder<uint8_t, 60> {
-//        BCD::bcd_t minute_data;
-
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
