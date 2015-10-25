@@ -50,8 +50,8 @@
 #include <stdint.h>
 #include "Arduino.h"
 
-namespace Configuration {
-    // The Configuration namespace holds the configuration of the clock library.
+struct Configuration {
+    // The Configuration holds the configuration of the clock library.
 
     // The resolution defines if the clock will average 10 milli second ticks and
     // then sample or if it will directly sample each millisecond.
@@ -80,33 +80,44 @@ namespace Configuration {
     // If you are in a (electrically) noisy environment the low memory footprint
     // option is recommended.
 
+    // If you are on AVR low memory will be selected and milli second
+    // accuracy will not be achieved.
+
+    // If you have a resonator instead of a crystal oscillator milli
+    // second accuracy will also never be achieved. Pretending to
+    // have a crystal even though you have a resonator will result
+    // in phase lock code that will not be able to lock to the phase.
+    // With other words: if the library fails to lock to DCF77 please
+    // double check if you really have a crystal. In particular the
+    // Arduino UNO has a crystal for USB but uses a resonator for the
+    // controller. Hence has_crystal = false must be used for the UNO.
+
     // 10 ms vs 1 ms sample resolution
     // setting this to true will change the sample resolution to 1 ms for ARM
     // for AVR there is not enough memory, so for AVR it will default to false
 
     // the constant(s) below are assumed to be configured by the user of the library
 
-    const boolean want_high_phase_lock_resolution = true;
+    static const boolean want_high_phase_lock_resolution = true;
     //const boolean want_high_phase_lock_resolution = false;
-
 
     // end of configuration section, the stuff below
     // will compute the implications of the desired configuration,
     // ready for the compiler to consume
-
     #if defined(__arm__)
-    const boolean has_lots_of_memory = true;
+    static const boolean has_lots_of_memory = true;
     #else
-    const boolean has_lots_of_memory = false;
+    static const boolean has_lots_of_memory = false;
     #endif
 
-    const boolean high_phase_lock_resolution = want_high_phase_lock_resolution && has_lots_of_memory;
+    static const boolean high_phase_lock_resolution = want_high_phase_lock_resolution &&
+                                                      has_lots_of_memory;
 
     enum ticks_per_second_t : uint16_t { centi_seconds = 100, milli_seconds = 1000 };
     // this is the actuall sample rate
-    const ticks_per_second_t phase_lock_resolution = high_phase_lock_resolution ? milli_seconds
-                                                                                : centi_seconds;
-}
+    static const ticks_per_second_t phase_lock_resolution = high_phase_lock_resolution ? milli_seconds
+                                                                                       : centi_seconds;
+};
 
 
 namespace BCD {
@@ -730,42 +741,6 @@ namespace Internal {
                 sprintln();
             }
 
-            template <uint8_t significant_bits, bool with_parity>
-            void hamming_binning(const BCD::bcd_t input) {
-                using namespace Arithmetic_Tools;
-                using namespace BCD;
-
-                if (this->max > 255-significant_bits) {
-                    // If we know we can not raise the maximum any further we
-                    // will lower the noise floor instead.
-                    for (index_t bin_index = 0; bin_index <number_of_bins; ++bin_index) {
-                        bounded_decrement<significant_bits>(this->data[bin_index]);
-                    }
-                    this->max -= significant_bits;
-                    bounded_decrement<significant_bits>(this->noise_max);
-                }
-
-                const index_t offset = number_of_bins-1-this->tick;
-                index_t bin_index = offset;
-                // for minutes, hours have parity and start counting at 0
-                // for days, weeks, month we have no parity and start counting at 1
-                // for years and decades we have no parity and start counting at 0
-                bcd_t candidate;
-                candidate.val = (with_parity || number_of_bins == 10)? 0x00: 0x01;
-                for (index_t pass=0; pass < number_of_bins; ++pass) {
-                    if (with_parity) {
-                        candidate.bit.b7 = parity(candidate.val);
-                        score<significant_bits>(this->data[bin_index], input, candidate);
-                        candidate.bit.b7 = 0;
-                    } else {
-                        score<significant_bits>(this->data[bin_index], input, candidate);
-                    }
-
-                    bin_index = bin_index < number_of_bins-1? bin_index+1: 0;
-                    increment(candidate);
-                }
-            }
-
             template <typename signal_t, signal_t signal_max, uint8_t signal_bitno_offset, uint8_t significant_bits, bool with_parity>
             void BCD_binning(const uint8_t bitno_with_offset, const signal_t signal) {
                 using namespace Arithmetic_Tools;
@@ -879,17 +854,17 @@ namespace Internal {
             BCD::bcd_t get_time_value();
             void debug();
 
-            template <uint8_t significant_bits, bool with_parity>
-            void hamming_binning(const BCD::bcd_t input);
-
             template <typename signal_t, signal_t signal_max, uint8_t significant_bits, bool with_parity>
             void BCD_binning(const uint8_t bitno, const signal_t signal);
         };
     }
 
     template <typename Clock_Controller>
-    struct DCF77_Demodulator : Binning::Convoluter<uint16_t, Configuration::phase_lock_resolution> {
-        static const index_t bin_count = Configuration::phase_lock_resolution;
+    struct DCF77_Demodulator : Binning::Convoluter<uint16_t, Clock_Controller::Configuration::phase_lock_resolution> {
+        typedef typename Binning::Convoluter<uint16_t, Clock_Controller::Configuration::phase_lock_resolution>::index_t index_t;
+        typedef typename Binning::Convoluter<uint16_t, Clock_Controller::Configuration::phase_lock_resolution>::data_t data_t;
+
+        static const index_t bin_count = Clock_Controller::Configuration::phase_lock_resolution;
         static const uint16_t samples_per_second = 1000;
 
         static const uint16_t samples_per_bin = samples_per_second / bin_count;
@@ -902,7 +877,7 @@ namespace Internal {
         static const uint16_t bins_per_500ms = 50 * bins_per_10ms;
         static const uint16_t bins_per_600ms = 60 * bins_per_10ms;
 
-        uint16_t wrap(const uint16_t value) {
+        static uint16_t wrap(const uint16_t value) {
             // faster modulo function which avoids division
             uint16_t result = value;
             while (result >= bin_count) {
@@ -911,8 +886,7 @@ namespace Internal {
             return result;
         }
 
-
-        static const uint32_t ticks_to_drift_one_tick       =  30000UL;
+        static const uint32_t ticks_to_drift_one_tick       = 30000UL;
         static const uint32_t tuned_ticks_to_drift_one_tick = 300000UL;
 
         // N times the clock precision shall be smaller than 1/resolution
@@ -921,6 +895,10 @@ namespace Internal {
         // N times the clock precision shall be smaller 1/bin_count
         // untuned clock ~30 ppm, 100 bins => N < 300
         // tuned clock ~2 ppm,    100 bins => N < 3600
+
+        // For resonators we will allow slightly higher phase drift thresholds.
+        // This is because otherwise we will not be able to deal with noise
+        // in any reasonable way.
         uint16_t N = ticks_to_drift_one_tick / bin_count;
         void set_has_tuned_clock() {
             // will be called once crystal is tuned to better than 1 ppm.
@@ -931,9 +909,9 @@ namespace Internal {
         int32_t running_max = 0;
         index_t running_max_index = 0;
         int32_t running_noise_max = 0;
-        uint8_t phase_binning(const uint8_t input)
+        void phase_binning(const uint8_t input)
                 __attribute__((always_inline)) {
-            Binning::Convoluter<uint16_t, Configuration::phase_lock_resolution>::advance_tick();
+            Binning::Convoluter<uint16_t, Clock_Controller::Configuration::phase_lock_resolution>::advance_tick();
             const index_t tick = this->tick;
 
             data_t & data = this->data[tick];
@@ -984,48 +962,42 @@ namespace Internal {
                 integral += (int32_t)this->data[ck_middle_tick];
                 integral += (int32_t)this->data[tick];
             }
-
-            return tick;
         }
 
-        TMP::uval_t<bin_count>::type count = 0;
+        typename TMP::uval_t<bin_count>::type count = 0;
         uint8_t decoded_data = 0;
-        void decode_200ms(const uint8_t input, const uint8_t bins_to_go)
-            __attribute__((always_inline)) {
-            // will be called for each bin during the "interesting" 200 ms
+        void decode_200ms(const uint8_t input, const uint8_t bins_to_go) {
             count += input;
-            if (bins_to_go > bins_per_100ms) {
-                if (bins_to_go == bins_per_100ms + 1) {
-                    decoded_data = count > bins_per_50ms? 2: 0;
-                    count = 0;
-                }
-            } else {
-                if (bins_to_go == 0) {
-                    decoded_data += count > bins_per_50ms? 1: 0;
-                    count = 0;
-                    // pass control further
-                    // decoded_data: 3 --> 1
-                    //               2 --> 0,
-                    //               1 --> undefined,
-                    //               0 --> sync_mark
-                    Clock_Controller::process_single_tick_data((DCF77::tick_t) decoded_data);
-                }
+            // will be called for each bin during the "interesting" 200 ms
+            if (bins_to_go == bins_per_100ms + 1) {
+                decoded_data = ((count > bins_per_50ms)? 2: 0);
+                count = 0;
+            }
+
+            if (bins_to_go == 0) {
+                decoded_data += ((count > bins_per_50ms)? 1: 0);
+                count = 0;
+                // pass control further
+                // decoded_data: 3 --> 1
+                //               2 --> 0,
+                //               1 --> undefined,
+                //               0 --> sync_mark
+                Clock_Controller::process_single_tick_data((DCF77::tick_t) decoded_data);
             }
         }
 
-        TMP::uval_t<bins_per_200ms+1>::type bins_to_go = 0;
-        void detector_stage_2(const uint8_t input)
-              __attribute__((always_inline)) {
+        typename TMP::uval_t<bins_per_200ms+1>::type bins_to_go = 0;
+        void detector_stage_2(const uint8_t input) {
             const index_t current_bin = this->tick;
 
             if (bins_to_go == 0) {
                 if (wrap((bin_count + current_bin - this->max_index)) <= bins_per_100ms ||   // current_bin at most 100ms after phase_bin
-                    wrap((bin_count + this->max_index - current_bin)) <= bins_per_10ms  ) {  // current bin at 1 tick before phase_bin
+                    wrap((bin_count + this->max_index - current_bin)) <= 1              ) {  // current bin at 1 tick before phase_bin
                     // if phase bin varies to much during one period we will always be screwed in may ways...
                     // last tick of current second
                     Clock_Controller::flush();
                     // start processing of bins
-                    bins_to_go = bins_per_200ms + 2*bins_per_10ms;
+                    bins_to_go = bins_per_200ms + 1;
                 }
             }
 
@@ -1044,21 +1016,21 @@ namespace Internal {
         // and detector dispatches.
         struct stage_with_averages {
             uint8_t sample_count = 0;
-            uint8_t average = 0;
+            uint8_t sum = 0;
 
             void reset() __attribute__ ((always_inline)) {
                 sample_count = 0;
-                average = 0;
+                sum = 0;
             }
             void reduce(const uint8_t sampled_data) __attribute__ ((always_inline)){
-                average += sampled_data;
+                sum += sampled_data;
                 ++sample_count;
             }
             bool data_ready() const __attribute__ ((always_inline)) {
                 return sample_count >= samples_per_bin;
             }
             uint8_t avg() const __attribute__ ((always_inline)) {
-                return average > samples_per_bin / 2;
+                return sum > samples_per_bin / 2;
             }
         };
 
@@ -1101,7 +1073,7 @@ namespace Internal {
 
         void debug() {
             sprint(F("Phase: "));
-            Binning::Convoluter<uint16_t, Configuration::phase_lock_resolution>::debug();
+            Binning::Convoluter<uint16_t, Clock_Controller::Configuration::phase_lock_resolution>::debug();
         }
 
         void debug_verbose() {
@@ -1278,10 +1250,13 @@ namespace Internal {
         // --> It is pointless to handle this.
         uint32_t unlocked_seconds;
 
+        static const uint8_t unacceptable_demodulator_quality = 10;
+
         void setup() {
             clock_state = Clock::useless;
             tick = 0;
             unlocked_seconds = 0;
+            // untuned resonators suck
             max_unlocked_seconds = 3000;
 
             local_clock_time.reset();
@@ -1336,7 +1311,7 @@ namespace Internal {
                     }
 
                     case Clock::locked: {
-                        if (Clock_Controller::get_demodulator_quality_factor() > 10) {
+                        if (Clock_Controller::get_demodulator_quality_factor() > unacceptable_demodulator_quality) {
                             // If we are not sure about leap seconds we will skip
                             // them. Worst case is that we miss a leap second due
                             // to noisy reception. This may happen at most once a
@@ -1360,7 +1335,7 @@ namespace Internal {
                     }
 
                     case Clock::unlocked: {
-                        if (Clock_Controller::get_demodulator_quality_factor() > 10) {
+                        if (Clock_Controller::get_demodulator_quality_factor() > unacceptable_demodulator_quality) {
                             // Quality is somewhat reasonable again, check
                             // if the phase offset is in reasonable bounds.
                             if (200 < tick && tick < 800) {
@@ -1442,6 +1417,7 @@ namespace Internal {
 
         uint32_t max_unlocked_seconds;
         void set_has_tuned_clock() {
+            // even tuned resonators suck
             max_unlocked_seconds = 30000;
         }
 
@@ -1682,8 +1658,10 @@ namespace Internal {
         void set_bit(const uint8_t second, const uint8_t value, DCF77_Encoder &now);
     }
 
-    template <typename Frequency_Control>
+    template <typename Configuration_T, typename Frequency_Control>
     struct DCF77_Clock_Controller {
+        typedef Configuration_T Configuration;
+
         static DCF77_Second_Decoder  Second_Decoder;
         static DCF77_Minute_Decoder  Minute_Decoder;
         static DCF77_Hour_Decoder    Hour_Decoder;
@@ -2180,7 +2158,7 @@ namespace Internal {
     namespace Generic_1_kHz_Generator {
         // This is the only remaining dependency to the DCF77 clock.
         // The implementation of the generator is otherwise completely generic.
-        typedef DCF77_Clock_Controller<DCF77_Frequency_Control> Clock_Controller;
+        typedef DCF77_Clock_Controller<Configuration, DCF77_Frequency_Control> Clock_Controller;
 
         void setup(const Clock::input_provider_t input_provider);
         uint8_t zero_provider();

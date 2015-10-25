@@ -360,7 +360,7 @@ void loop() {
         DCF77_Clock::debug();
 
         // get access to low level debug information
-        typedef Internal::DCF77_Clock_Controller<Internal::DCF77_Frequency_Control> Clock_Controller;
+        typedef Internal::DCF77_Clock_Controller<Configuration, Internal::DCF77_Frequency_Control> Clock_Controller;
         //Clock_Controller::Second_Decoder.debug();
         Clock_Controller::Local_Clock.debug();
 

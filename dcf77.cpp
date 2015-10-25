@@ -1359,33 +1359,33 @@ namespace Internal {
     }
 }
 
-namespace Internal {  // DCF77_Clock_Controller<Frequency_Control>
-    // static member definitions for DCF77_Clock_Controller<Frequency_Control>
-    template <typename Frequency_Control> Clock::output_handler_t DCF77_Clock_Controller<Frequency_Control>::output_handler = 0;
+namespace Internal {  // DCF77_Clock_Controller<Configuration, Frequency_Control>
+    // static member definitions for DCF77_Clock_Controller<Configuration, Frequency_Control>
+    template <typename Configuration, typename Frequency_Control> Clock::output_handler_t DCF77_Clock_Controller<Configuration, Frequency_Control>::output_handler = 0;
 
-    template <typename Frequency_Control> DCF77_Second_Decoder  DCF77_Clock_Controller<Frequency_Control>::Second_Decoder;
-    template <typename Frequency_Control> DCF77_Minute_Decoder  DCF77_Clock_Controller<Frequency_Control>::Minute_Decoder;
-    template <typename Frequency_Control> DCF77_Hour_Decoder    DCF77_Clock_Controller<Frequency_Control>::Hour_Decoder;
-    template <typename Frequency_Control> DCF77_Weekday_Decoder DCF77_Clock_Controller<Frequency_Control>::Weekday_Decoder;
-    template <typename Frequency_Control> DCF77_Day_Decoder     DCF77_Clock_Controller<Frequency_Control>::Day_Decoder;
-    template <typename Frequency_Control> DCF77_Month_Decoder   DCF77_Clock_Controller<Frequency_Control>::Month_Decoder;
-    template <typename Frequency_Control> DCF77_Year_Decoder    DCF77_Clock_Controller<Frequency_Control>::Year_Decoder;
-    template <typename Frequency_Control> DCF77_Flag_Decoder    DCF77_Clock_Controller<Frequency_Control>::Flag_Decoder;
+    template <typename Configuration, typename Frequency_Control> DCF77_Second_Decoder  DCF77_Clock_Controller<Configuration, Frequency_Control>::Second_Decoder;
+    template <typename Configuration, typename Frequency_Control> DCF77_Minute_Decoder  DCF77_Clock_Controller<Configuration, Frequency_Control>::Minute_Decoder;
+    template <typename Configuration, typename Frequency_Control> DCF77_Hour_Decoder    DCF77_Clock_Controller<Configuration, Frequency_Control>::Hour_Decoder;
+    template <typename Configuration, typename Frequency_Control> DCF77_Weekday_Decoder DCF77_Clock_Controller<Configuration, Frequency_Control>::Weekday_Decoder;
+    template <typename Configuration, typename Frequency_Control> DCF77_Day_Decoder     DCF77_Clock_Controller<Configuration, Frequency_Control>::Day_Decoder;
+    template <typename Configuration, typename Frequency_Control> DCF77_Month_Decoder   DCF77_Clock_Controller<Configuration, Frequency_Control>::Month_Decoder;
+    template <typename Configuration, typename Frequency_Control> DCF77_Year_Decoder    DCF77_Clock_Controller<Configuration, Frequency_Control>::Year_Decoder;
+    template <typename Configuration, typename Frequency_Control> DCF77_Flag_Decoder    DCF77_Clock_Controller<Configuration, Frequency_Control>::Flag_Decoder;
 
-    template <typename Frequency_Control> uint8_t       DCF77_Clock_Controller<Frequency_Control>::leap_second;
-    template <typename Frequency_Control> DCF77_Encoder DCF77_Clock_Controller<Frequency_Control>::decoded_time;
+    template <typename Configuration, typename Frequency_Control> uint8_t       DCF77_Clock_Controller<Configuration, Frequency_Control>::leap_second;
+    template <typename Configuration, typename Frequency_Control> DCF77_Encoder DCF77_Clock_Controller<Configuration, Frequency_Control>::decoded_time;
 
-    template <typename Frequency_Control> DCF77_Local_Clock<DCF77_Clock_Controller<Frequency_Control> >
-        DCF77_Clock_Controller<Frequency_Control>::Local_Clock;
+    template <typename Configuration, typename Frequency_Control> DCF77_Local_Clock<DCF77_Clock_Controller<Configuration, Frequency_Control> >
+        DCF77_Clock_Controller<Configuration, Frequency_Control>::Local_Clock;
 
-    template <typename Frequency_Control> DCF77_Demodulator<DCF77_Clock_Controller<Frequency_Control> >
-        DCF77_Clock_Controller<Frequency_Control>::Demodulator;
+    template <typename Configuration, typename Frequency_Control> DCF77_Demodulator<DCF77_Clock_Controller<Configuration, Frequency_Control> >
+        DCF77_Clock_Controller<Configuration, Frequency_Control>::Demodulator;
 }
 
 namespace DCF77_Clock {
     using namespace Internal;
 
-    typedef DCF77_Clock_Controller<DCF77_Frequency_Control> Clock_Controller;
+    typedef DCF77_Clock_Controller<Configuration, DCF77_Frequency_Control> Clock_Controller;
 
     void setup() {
         Clock_Controller::setup();
@@ -1575,7 +1575,7 @@ namespace Internal {  // DCF77_Frequency_Control
                     if ((deviation_tracker.good_enough() && abs(deviation) >= deviation_to_trigger_readjust) ||
                          deviation_tracker.timeout()) {
                         adjust();
-                        DCF77_Clock_Controller<DCF77_Frequency_Control>::on_tuned_clock();
+                        DCF77_Clock_Controller<Configuration, DCF77_Frequency_Control>::on_tuned_clock();
 
                         #if defined(_AVR_EEPROM_H_)
                         // enqueue write to eeprom
@@ -1688,7 +1688,7 @@ namespace Internal {  // DCF77_Frequency_Control
 
         read_from_eeprom(ee_precision, adjust);
         if (ee_precision) {
-            DCF77_Clock_Controller<DCF77_Frequency_Control>::on_tuned_clock();
+            DCF77_Clock_Controller<Configuration, DCF77_Frequency_Control>::on_tuned_clock();
         }
         Generic_1_kHz_Generator::adjust(adjust);
     }

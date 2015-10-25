@@ -63,7 +63,7 @@ uint8_t ledpin(const uint8_t led) {
 #endif
 
 using namespace Internal;
-typedef DCF77_Clock_Controller<DCF77_Frequency_Control> Clock_Controller;
+typedef DCF77_Clock_Controller<Configuration, DCF77_Frequency_Control> Clock_Controller;
 
 
 namespace Phase_Drift_Analysis {

@@ -1326,7 +1326,7 @@ namespace parser {
 }
 
 uint8_t lock_progress() {
-    typedef Internal::DCF77_Clock_Controller<Internal::DCF77_Frequency_Control> Clock_Controller;
+    typedef Internal::DCF77_Clock_Controller<Configuration, Internal::DCF77_Frequency_Control> Clock_Controller;
     Clock_Controller::clock_quality_factor_t quality;
     Clock_Controller::get_quality_factor(quality);
 

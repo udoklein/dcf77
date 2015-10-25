@@ -16,16 +16,29 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see http://www.gnu.org/licenses/
 
-// TODO: unit test for convolution decoder with 10ms and 1ms resolution needed
-// TODO: unit test for local clock / state engine
-// TODO: unit test for signal loss behaviour
-// TODO: unit test for frequency control
-// TODO: unit test for the templates
-// TODO: test synthesizer vs. decoders
+
+#if defined(__AVR__)
+    #error
+    #error "You have set the target platform to Atmel AVR"
+    #error "(e.g. Arduino Uno). However the Atmel controllers"
+    #error "lack sufficient memory to deal with this test code."
+    #error "In order to run the testys you need a target with"
+    #error "more Memory (e.g. Arduino Due)."
+    #error
+    #error "This does not imply that the library is not"
+    #error "good for Atmel AVR. It only implies that the"
+    #error "test code is to big for AVR. If the tests pass"
+    #error "for any platform then most of the code for the other"
+    #error "platforms is also tested."
+    #error
+    #error "So either get a suitable target to run the tests"
+    #error "or believe me that I did run them."
+    #error
+#endif
 
 #include <dcf77.h>
 
-const bool stop_on_first_error = true;
+const bool stop_on_first_error = false;
 const bool verbose = false;
 
 namespace ut {
@@ -105,6 +118,15 @@ namespace ut {
         Serial.println(failed);
         Serial.println();
     }
+}
+
+namespace {
+    void todo(uint32_t line) {
+        Serial.print(line);
+        Serial.println(F(": TODO"));
+    }
+
+    #define todo(...) todo(__LINE__)
 }
 
 void test_BCD() {
@@ -5076,6 +5098,398 @@ void test_Flag_Decoder() {
     }
 }
 
+
+struct modulator {
+    // this is bascially the start time INPUT,
+    // since the modulator keeps its state here, it is also
+    // the OUTPUT
+    Internal::DCF77_Encoder encoder;
+    uint16_t phase = 0;
+
+    // these are parameters that control the modulator behaviour
+    // if necessary they can be modified to simulate a poor signal
+    uint16_t short_tick_duration = 100;
+    uint16_t long_tick_duration = 200;
+    int8_t  drift = 0;
+
+    // this is the modulator output
+    Internal::DCF77::tick_t output_tick;
+    uint8_t signal;
+
+    // this is the interal state of the modulator
+    uint8_t tick_duration;
+    int32_t cummulated_drift = 0;
+
+
+    void compute_next_ms() {
+        using namespace Internal;
+
+        if (phase == 0) {
+            output_tick = encoder.get_current_signal();
+            tick_duration = output_tick == DCF77::long_tick ? long_tick_duration:
+                            output_tick == DCF77::short_tick? short_tick_duration:
+                            output_tick == DCF77::undefined ? short_tick_duration:
+                                                                                0;
+        }
+
+        // push output
+        signal = (phase < tick_duration);
+
+        ++phase;
+
+        cummulated_drift += drift;
+        if (cummulated_drift < -1000000) {
+            --phase;
+            cummulated_drift += 1000000;
+        }
+
+        if (cummulated_drift > 1000000) {
+            ++phase;
+            cummulated_drift -= 1000000;
+        }
+
+        if (phase >= 1000) {
+            encoder.advance_second();
+            phase -= 1000;
+        }
+    }
+};
+
+template <boolean want_high_resolution>
+struct Configuration_T {
+    static const boolean want_high_phase_lock_resolution = want_high_resolution;
+    //const boolean want_high_phase_lock_resolution = false;
+
+    // end of configuration section, the stuff below
+    // will compute the implications of the desired configuration,
+    // ready for the compiler to consume
+    #if defined(__arm__)
+    static const boolean has_lots_of_memory = true;
+    #else
+    static const boolean has_lots_of_memory = false;
+    #endif
+
+    static const boolean high_phase_lock_resolution = want_high_phase_lock_resolution &&
+                                                      has_lots_of_memory;
+
+    enum ticks_per_second_t : uint16_t { centi_seconds = 100, milli_seconds = 1000 };
+    // this is the actuall sample rate
+    static const ticks_per_second_t phase_lock_resolution = high_phase_lock_resolution ? milli_seconds
+                                                                                       : centi_seconds;
+};
+
+
+template <typename Configuration_T>
+struct Controller_T {
+    typedef Configuration_T Configuration;
+    typedef void *Controller_process_single_tick_handler(Internal::DCF77::tick_t);
+
+    static Internal::DCF77::tick_t last_tick;
+
+    static void process_single_tick_data(Internal::DCF77::tick_t tick) {
+        last_tick = tick;
+    }
+};
+template <typename Configuration_T> Internal::DCF77::tick_t Controller_T<Configuration_T>::last_tick;
+
+template <typename Configuration_T>
+void test_Demodulator_internal() {
+    using namespace Internal;
+    typedef Controller_T<Configuration_T> controller_t;
+    typedef DCF77_Demodulator<Controller_T<Configuration_T> > Demodulator_t;
+
+    const uint16_t bin_count = Demodulator_t::bin_count;
+    const uint16_t bins_per_10ms  = Demodulator_t::bins_per_10ms;
+    const uint16_t bins_per_50ms  = Demodulator_t::bins_per_50ms;
+    const uint16_t bins_per_100ms = Demodulator_t::bins_per_100ms;
+    const uint16_t samples_per_second = 1000;
+    const uint16_t samples_per_bin = samples_per_second / bin_count;
+
+    const bool hires = (bin_count > 100);
+
+    {  // static attributes
+        assert(F("bin_count vs. resolution"),
+               bin_count == hires? 1000: 100,
+               Demodulator_t::bins_per_10ms  == (hires? 10 : 1)    &&
+               Demodulator_t::bins_per_50ms  ==  5 * bins_per_10ms &&
+               Demodulator_t::bins_per_60ms  ==  6 * bins_per_10ms &&
+               Demodulator_t::bins_per_100ms == 10 * bins_per_10ms &&
+               Demodulator_t::bins_per_200ms == 20 * bins_per_10ms &&
+               Demodulator_t::bins_per_400ms == 40 * bins_per_10ms &&
+               Demodulator_t::bins_per_500ms == 50 * bins_per_10ms &&
+               Demodulator_t::bins_per_600ms == 60 * bins_per_10ms,
+               bin_count,
+               hires,
+               Demodulator_t::bins_per_10ms,
+               Demodulator_t::bins_per_50ms,
+               Demodulator_t::bins_per_60ms,
+               Demodulator_t::bins_per_100ms,
+               Demodulator_t::bins_per_200ms,
+               Demodulator_t::bins_per_400ms,
+               Demodulator_t::bins_per_500ms,
+               Demodulator_t::bins_per_600ms);
+
+        assert(F("samples_per_bin vs. resolution"), samples_per_bin == hires? 1: 10,
+               samples_per_bin, hires);
+
+        // proper types
+        assert(F("proper index_t"), sizeof(Demodulator_t::bin_count) == (bin_count > 255 ? 2: 1),
+               sizeof(Demodulator_t::bin_count), bin_count);
+    }
+
+    {  // wrap
+        uint16_t value;
+
+        value = Demodulator_t::wrap(0);
+        assert(F("0 never wraps"), value == 0, value, bin_count);
+
+        value = Demodulator_t::wrap(bin_count);
+        assert(F("wrap to 0"), value == 0, value, bin_count);
+
+        value = Demodulator_t::wrap(bin_count+1);
+        assert(F("wrap to 1"), value == 1, value, bin_count);
+
+        value = Demodulator_t::wrap(1000);
+        assert(F("1000 wraps to 0"), value == 1000 % bin_count, value, bin_count);
+
+        value = Demodulator_t::wrap(54021);
+        assert(F("54021 wraps to 21"), value == 54021 % bin_count, value, bin_count);
+    }
+
+    {  // set_has_tuned_clock
+        assert(F("tuned clock assumed to drift 10 times less than untuned clock"),
+               Demodulator_t::ticks_to_drift_one_tick * 10 <= Demodulator_t::tuned_ticks_to_drift_one_tick,
+               Demodulator_t::ticks_to_drift_one_tick,
+               Demodulator_t::tuned_ticks_to_drift_one_tick);
+
+        Demodulator_t decoder;
+        uint16_t n0 = decoder.N;
+        decoder.set_has_tuned_clock();
+        uint16_t n1 = decoder.N;
+
+        assert(F("tuning increases filter constant"), n1 == 10 * n0,
+               n1, n0);
+
+        assert(F("filter constant increases according to drift improvement"),
+               n1 / n0 == Demodulator_t::tuned_ticks_to_drift_one_tick / Demodulator_t::ticks_to_drift_one_tick,
+               n1, n0);
+    }
+
+    {  // phase_binning
+        // test how a clean short tick is detected
+        Demodulator_t decoder;
+        for (uint16_t offset = 0; offset < bin_count && offset < bin_count; ++offset) {
+            decoder.setup();
+
+            for (uint16_t bin = 0; bin < 40*bin_count; ++bin) {
+                const uint8_t data = ((bin+offset) % bin_count) < bins_per_100ms;
+                decoder.phase_binning(data);
+            }
+
+            const uint16_t expected_index = (bin_count + 1 - offset) % bin_count;
+            assert(F("proper phase lock on a clean short tick"), decoder.running_max_index == expected_index,
+                   decoder.bin_count,
+                   decoder.running_max_index,
+                   expected_index);
+        }
+
+        // test how a clean long tick is detected
+        for (uint16_t offset = 0; offset < bin_count && offset < bin_count; ++offset) {
+            decoder.setup();
+
+            for (uint16_t bin = 0; bin < 40*bin_count; ++bin) {
+                const uint8_t data = ((bin+offset) % bin_count) < 2*bins_per_100ms;
+                decoder.phase_binning(data);
+            }
+
+            const uint16_t expected_index = (bin_count + 1 - offset) % bin_count;
+            assert(F("proper phase lock on a clean long tick"), decoder.running_max_index == expected_index,
+                   decoder.bin_count,
+                   decoder.running_max_index,
+                   expected_index);
+        }
+
+        // no tests with noise because we will test this together with the rest of the decoder
+    }
+
+    {  // decode_200ms
+        Demodulator_t decoder;
+        controller_t::last_tick = (DCF77::tick_t) 0xFF;
+        decoder.decoded_data = 0;
+        for (int16_t bins_to_go = decoder.bins_per_200ms+1, bins_gone = 0; bins_to_go > 0; --bins_to_go, ++bins_gone) {
+            decoder.decode_200ms(0, bins_to_go);
+        }
+        assert(F("clock controller not triggered after decoding ++200 ms"),
+               controller_t::last_tick == (DCF77::tick_t) 0xFF,
+               controller_t::last_tick,
+               hires);
+        decoder.decode_200ms(0, 0);
+        assert(F("clock controller triggered after decoding ++++200 ms"),
+               controller_t::last_tick != (DCF77::tick_t) 0xFF,
+               controller_t::last_tick,
+               hires);
+        assert(F("decode all 0 as sync marc"),
+               controller_t::last_tick == DCF77::sync_mark,
+               controller_t::last_tick,
+               hires);
+
+        controller_t::last_tick = (DCF77::tick_t) 0xFF;
+        decoder.decoded_data = 0;
+        for (int16_t bins_to_go = decoder.bins_per_200ms+1, bins_gone = 0; bins_to_go >= 0; --bins_to_go, ++bins_gone) {
+            decoder.decode_200ms(bins_gone < bins_per_50ms, bins_to_go);
+        }
+        assert(F("decode 50ms 1 as sync marc"),
+               controller_t::last_tick == DCF77::sync_mark,
+               controller_t::last_tick,
+               hires);
+
+        controller_t::last_tick = (DCF77::tick_t) 0xFF;
+        decoder.decoded_data = 0;
+        for (int16_t bins_to_go = decoder.bins_per_200ms+1, bins_gone = 0; bins_to_go >= 0; --bins_to_go, ++bins_gone) {
+            decoder.decode_200ms(bins_gone <= bins_per_50ms, bins_to_go);
+        }
+        assert(F("decode ++50ms 1 as short tick"),
+               controller_t::last_tick == DCF77::short_tick,
+               controller_t::last_tick,
+               hires);
+
+        controller_t::last_tick = (DCF77::tick_t) 0xFF;
+        decoder.decoded_data = 0;
+        for (int16_t bins_to_go = decoder.bins_per_200ms+1, bins_gone = 0; bins_to_go >= 0; --bins_to_go, ++bins_gone) {
+            decoder.decode_200ms(bins_gone <= 3*bins_per_50ms, bins_to_go);
+        }
+        assert(F("decode ++150ms as short tick"),
+               controller_t::last_tick == DCF77::short_tick,
+               controller_t::last_tick,
+               hires);
+
+        controller_t::last_tick = (DCF77::tick_t) 0xFF;
+        decoder.decoded_data = 0;
+        for (int16_t bins_to_go = decoder.bins_per_200ms+1, bins_gone = 0; bins_to_go >= 0; --bins_to_go, ++bins_gone) {
+            decoder.decode_200ms(bins_gone <= 3*bins_per_50ms+1, bins_to_go);
+        }
+        assert(F("decode ++++150ms as long tick"),
+               controller_t::last_tick == DCF77::long_tick,
+               controller_t::last_tick,
+               hires);
+
+        controller_t::last_tick = (DCF77::tick_t) 0xFF;
+        decoder.decoded_data = 0;
+        for (int16_t bins_to_go = decoder.bins_per_200ms+1, bins_gone = 0; bins_to_go >= 0; --bins_to_go, ++bins_gone) {
+            decoder.decode_200ms(1, bins_to_go);
+        }
+        assert(F("decode all 1 as long tick"),
+               controller_t::last_tick == DCF77::long_tick,
+               controller_t::last_tick,
+               hires);
+
+        controller_t::last_tick = (DCF77::tick_t) 0xFF;
+        decoder.decoded_data = 0;
+        for (int16_t bins_to_go = decoder.bins_per_200ms+1, bins_gone = 0; bins_to_go >= 0; --bins_to_go, ++bins_gone) {
+            decoder.decode_200ms(bins_gone <= bins_per_100ms ||
+                                 bins_gone > bins_per_100ms + bins_per_50ms +1 ,
+                                 bins_to_go);
+        }
+        assert(F("decode ++100ms 1 followed by ++50ms 0 and 50ms 1 as short tick"),
+               controller_t::last_tick == DCF77::short_tick,
+               controller_t::last_tick,
+               hires);
+
+        controller_t::last_tick = (DCF77::tick_t) 0xFF;
+        decoder.decoded_data = 0;
+        for (int16_t bins_to_go = decoder.bins_per_200ms+1, bins_gone = 0; bins_to_go >= 0; --bins_to_go, ++bins_gone) {
+            decoder.decode_200ms(bins_gone <= bins_per_100ms+1 ||
+                                 bins_gone > bins_per_100ms+1 + bins_per_50ms,
+                                 bins_to_go);
+        }
+        assert(F("decode ++++100ms 1 followed by 50ms 0 and 50ms 1 as long tick"),
+               controller_t::last_tick == DCF77::long_tick,
+               controller_t::last_tick,
+               hires);
+
+        controller_t::last_tick = (DCF77::tick_t) 0xFF;
+        decoder.decoded_data = 0;
+        for (int16_t bins_to_go = decoder.bins_per_200ms+1, bins_gone = 0; bins_to_go >= 0; --bins_to_go, ++bins_gone) {
+            decoder.decode_200ms(bins_gone > decoder.bins_per_50ms &&
+                                 bins_gone <= 3*decoder.bins_per_50ms,
+                                 bins_to_go);
+        }
+        assert(F("decode ++50ms 0 followed by 100ms 1 as sync marc"),
+               controller_t::last_tick == DCF77::sync_mark,
+               controller_t::last_tick,
+               hires);
+
+                controller_t::last_tick = (DCF77::tick_t) 0xFF;
+        for (int16_t bins_to_go = decoder.bins_per_200ms+1, bins_gone = 0; bins_to_go >= 0; --bins_to_go, ++bins_gone) {
+            decoder.decode_200ms(bins_gone > decoder.bins_per_50ms-1 && bins_gone <= 3*decoder.bins_per_50ms, bins_to_go);
+        }
+        assert(F("decode 50ms 0 followed ++100ms 1 as short tick"),
+               controller_t::last_tick == DCF77::short_tick,
+               controller_t::last_tick,
+               hires);
+    }
+
+    {  // stage_with_averages
+        if (samples_per_bin > 1) {
+            typename Demodulator_t::stage_with_averages stage;
+
+            stage.sample_count = 1;
+            stage.sum = 1;
+            stage.reset();
+            assert(F("reset stage"), stage.sample_count == 0 && stage.sum == 0,
+                   stage.sample_count, stage.sum);
+
+            stage.reduce(1);
+            assert(F("reduce 1"), stage.sample_count == 1 && stage.sum == 1,
+                   stage.sample_count, stage.sum);
+
+            stage.reduce(4);
+            assert(F("reduce 4 more"), stage.sample_count == 2 && stage.sum == 5,
+                   stage.sample_count, stage.sum);
+
+            stage.reduce(0);
+            stage.reduce(0);
+            stage.reduce(0);
+            stage.reduce(0);
+            stage.reduce(0);
+            stage.reduce(0);
+            stage.reduce(0);
+            assert(F("reduce 7 zeroes more"), stage.sample_count == 9 && stage.sum == 5,
+                   stage.sample_count, stage.sum);
+
+            assert(F("data not ready after 9 samples"), stage.data_ready() == false,
+                   stage.data_ready());
+            assert(F("cummulated data below threshhold"), stage.avg() == 0,
+                   stage.avg());
+
+            stage.reduce(1);
+            assert(F("data ready after 10 samples"), stage.data_ready() == true,
+                   stage.data_ready());
+            assert(F("cummulated data above threshhold"), stage.avg() == 1,
+                   stage.avg(), stage.sum);
+        }
+    }
+
+    {  // detector
+        // The detector will behave differently depending on the number of bins.
+        // If there are 1000 bins (== one bin per sample) it will just call phase_binning.
+        // If therea are 100 bins (== 10 samples per bin) it will average 10 samples
+        // and then dispatch to phase_binning.
+
+todo();
+    }
+}
+
+void test_Demodulator() {
+    // Attention: depending on the resolution (100 or 1000 samples) the implemented
+    //            logic is different --> both must be tested
+
+    using namespace Internal;
+
+    test_Demodulator_internal<Configuration_T<false> >();
+    test_Demodulator_internal<Configuration_T<true> >();
+}
+
 void test_Binning() {
     using namespace Internal;
     const uint8_t number_of_bins = 8;
@@ -6372,22 +6786,30 @@ void boilerplate() {
 
 }
 
-void setup() {
-    Serial.begin(115000);
+void disable_tick_interrupts() {
+    #if defined(__AVR__)
+    noInterrupts();
+    #else
+    SysTick->CTRL = 0;
+    #endif
+}
 
+void setup() {
+    disable_tick_interrupts();
+    Serial.begin(115000);
     boilerplate();
 
     test_BCD();
-//    //test_Clock() // todo
-//    //test_DCF77_Clock() // todo
+    todo(); //test_Clock()
+    todo(); //test_DCF77_Clock()
     test_TMP();
     test_Arithmetic_Tools();
-//
+
     test_DCF77_Encoder();
-//    //test_Convoluter() // todo
-//    //test_Binner() // todo
-//    //test_Demodulator() // todo
-      test_Flag_Decoder();
+    todo(); //test_Convoluter() // todo, not urgent as implicitly tested with Demodulator
+    todo(); //test_Binner() // todo, not urgent as implicitly tested with most decoders
+    test_Demodulator();
+    test_Flag_Decoder();
     test_Binning();
     test_Minute_Decoder();
     test_Hour_Decoder();
@@ -6396,11 +6818,11 @@ void setup() {
     test_Year_Decoder();
     test_Decade_Decoder();
     test_Weekday_Decoder();
-//
-//    //test_Local_Clock() // todo
-//    //test_Frequency_Control() // todo
-//    //test_Clock_Controller() // todo
-//    //test_Generic_1_kHz_Generator() // todo
+
+    todo(); //test_Local_Clock()
+    todo(); //test_Frequency_Control()
+    todo(); //test_Clock_Controller()
+    todo(); //test_Generic_1_kHz_Generator()
 
     ut::print_statistics();
 }
