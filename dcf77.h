@@ -818,9 +818,10 @@ namespace Internal {
             void debug() {
                 for (index_t index = 0; index < number_of_bins; ++index) {
                     sprint((
-                        index == this->max_index                         ||
-                        index == ((this->max_index+10) % number_of_bins) ||
-                        index == ((this->max_index+20) % number_of_bins))
+                        // hard coded to the implicit knowledge of the phase detection convolution kernel
+                        index == this->max_index                                            ||
+                        index == ((this->max_index+1*(number_of_bins/10)) % number_of_bins) ||
+                        index == ((this->max_index+2*(number_of_bins/10)) % number_of_bins))
                         ? '|': ',');
                         sprint(this->data[index], HEX);
                 }
@@ -909,6 +910,16 @@ namespace Internal {
         int32_t running_max = 0;
         index_t running_max_index = 0;
         int32_t running_noise_max = 0;
+
+        void setup() {
+            Binning::Convoluter<uint16_t, Clock_Controller::Configuration::phase_lock_resolution>::setup();
+            integral = 0;
+            running_max = 0;
+            running_max_index = 0;
+            running_noise_max = 0;
+            N = ticks_to_drift_one_tick / bin_count;
+        }
+
         void phase_binning(const uint8_t input)
                 __attribute__((always_inline)) {
             Binning::Convoluter<uint16_t, Clock_Controller::Configuration::phase_lock_resolution>::advance_tick();
@@ -932,8 +943,8 @@ namespace Internal {
 
             {
                 // ck = convolution_kernel
-                const index_t ck_start_tick  = wrap(tick+((10-2)*bins_per_100ms));
-                const index_t ck_middle_tick = wrap(tick+((10-1)*bins_per_100ms));
+                const index_t ck_start_tick  = wrap(tick+((10-2)*(uint16_t)bins_per_100ms));
+                const index_t ck_middle_tick = wrap(tick+((10-1)*(uint16_t)bins_per_100ms));
 
                 if (integral > running_max) {
                     running_max = integral;
@@ -973,7 +984,6 @@ namespace Internal {
                 decoded_data = ((count > bins_per_50ms)? 2: 0);
                 count = 0;
             }
-
             if (bins_to_go == 0) {
                 decoded_data += ((count > bins_per_50ms)? 1: 0);
                 count = 0;
@@ -989,7 +999,6 @@ namespace Internal {
         typename TMP::uval_t<bins_per_200ms+1>::type bins_to_go = 0;
         void detector_stage_2(const uint8_t input) {
             const index_t current_bin = this->tick;
-
             if (bins_to_go == 0) {
                 if (wrap((bin_count + current_bin - this->max_index)) <= bins_per_100ms ||   // current_bin at most 100ms after phase_bin
                     wrap((bin_count + this->max_index - current_bin)) <= 1              ) {  // current bin at 1 tick before phase_bin
