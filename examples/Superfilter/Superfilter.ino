@@ -83,10 +83,9 @@ namespace {
         volatile boolean samples_pending = false;
         volatile uint32_t count = 0;
 
+        uint8_t  sbin[bins];
+        uint16_t ticks = 999;
         void process_one_sample(const uint8_t sample) {
-            static uint8_t sbin[bins];
-
-            static uint16_t ticks = 999;  // first pass will init the bins
             ++ticks;
 
             if (ticks == 1000) {
@@ -328,6 +327,6 @@ void loop() {
     Serial.print(' ');
     DCF77_Clock::debug();
 
-    scope_1.print();
-    scope_2.print();
+    Serial.print(F("[1] ")); scope_1.print();
+    Serial.print(F("[2] ")); scope_2.print();
 }
