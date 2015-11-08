@@ -996,17 +996,17 @@ namespace Internal {
             }
         }
 
-        typename TMP::uval_t<bins_per_200ms+1>::type bins_to_go = 0;
+        typename TMP::uval_t<bins_per_200ms+2>::type bins_to_go = 0;
         void detector_stage_2(const uint8_t input) {
             const index_t current_bin = this->tick;
             if (bins_to_go == 0) {
-                if (wrap((bin_count + current_bin - this->max_index)) <= bins_per_100ms ||   // current_bin at most 100ms after phase_bin
-                    wrap((bin_count + this->max_index - current_bin)) <= 1              ) {  // current bin at 1 tick before phase_bin
+                if (wrap((bin_count + current_bin + 1 - this->max_index)) <= bins_per_100ms ||   // current_bin at most 100ms after phase_bin
+                    wrap((bin_count + this->max_index - current_bin)) <= 1                  ) {  // current bin at most 1 tick before phase_bin
                     // if phase bin varies to much during one period we will always be screwed in may ways...
                     // last tick of current second
                     Clock_Controller::flush();
                     // start processing of bins
-                    bins_to_go = bins_per_200ms + 1;
+                    bins_to_go = bins_per_200ms + 2;
                 }
             }
 
