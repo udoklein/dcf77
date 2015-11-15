@@ -633,8 +633,8 @@ void setup() {
 
     Serial.begin(115200);
 
+    pinMode(dcf77_sample_pin, INPUT);
     digitalWrite(dcf77_sample_pin, dcf77_pull_up);
-    digitalWrite(dcf77_sample_pin, HIGH);
 
 #if defined(POLLIN_DCF77)
     pinMode(gnd_pin, OUTPUT);

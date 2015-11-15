@@ -297,8 +297,8 @@ void help() {
 void setup() {
     pinMode(dcf77_monitor_pin, OUTPUT);
 
+    pinMode(dcf77_sample_pin, INPUT);
     digitalWrite(dcf77_sample_pin, dcf77_pull_up);
-    digitalWrite(dcf77_sample_pin, HIGH);
 
     setup_output_pins();
 
