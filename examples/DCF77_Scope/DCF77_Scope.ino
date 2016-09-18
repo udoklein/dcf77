@@ -25,7 +25,7 @@ namespace {
 const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = 19;  // A5 == D19 for standard Arduinos
 const uint8_t dcf77_inverted_samples = 1;
-const uint8_t dcf77_analog_samples = 1;
+const uint8_t dcf77_analog_samples = 0;
 const uint8_t dcf77_pull_up = 1;
 
 const uint8_t dcf77_monitor_led = 18; // A4 == D18 for standard Arduinos
@@ -237,8 +237,9 @@ void initTimer2() {
     TCCR2B = (0<<WGM22) | (1<<CS22);
     TCCR2A = (1<<WGM21) | (0<<WGM20);
 
-    // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
-    OCR2A = 249;
+    // 16 MHz: 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
+    //  8 MHz: 124 + 1 == 125 == 125 000 / 1000 =  ( 8 000 000 / 64) / 1000
+    OCR2A = (F_CPU / 64 / 1000) - 1;
 
     // enable Timer 2 interrupts
     TIMSK2 = (1<<OCIE2A);

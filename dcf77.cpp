@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2015 Udo Klein
+//  Copyright 2016 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,23 @@ namespace Internal { namespace Debug {
     void hexdump(uint8_t data) {
         if (data < 0x10) { sprint('0'); }
         sprint(data, HEX);
+    }
+
+    void sprintpp16m(int16_t pp16m) {
+        const int16_t ppm = pp16m / 16;
+        sprint(ppm);
+        sprint('.');
+        const int16_t residue = abs(pp16m - 16 * ppm);
+        if (residue == 0) {
+            sprint(F("0000"));
+        } else
+        if (residue == 1) {
+            sprint(F("0625"));
+        } else {
+            // 1/16 = .0625
+            sprint(residue * 625);
+        }
+        sprint(F(" ppm"));
     }
 }}
 
@@ -1572,7 +1589,7 @@ namespace Internal {  // DCF77_Frequency_Control
 
             if (calibration_state.running) {
                 if (calibration_state.qualified) {
-                    if ((deviation_tracker.good_enough() && abs(deviation) >= deviation_to_trigger_readjust) ||
+                    if ((Configuration::has_stable_ambient_temperature && deviation_tracker.good_enough() && abs(deviation) >= deviation_to_trigger_readjust) ||
                          deviation_tracker.timeout()) {
                         adjust();
                         DCF77_Clock_Controller<Configuration, DCF77_Frequency_Control>::on_tuned_clock();
@@ -1664,11 +1681,13 @@ namespace Internal {  // DCF77_Frequency_Control
             int8_t  ee_precision;
             read_from_eeprom(ee_precision, ee_adjust);
 
-            if (confirmed_precision < abs(ee_precision) ||        // - precision better than it used to be
-                ( abs(ee_precision) < 8 &&                        // - precision better than 8 Hz or 0.5 ppm @ 16 MHz
-                  abs(ee_adjust-adjust) > 8 )           ||        //   deviation worse than 8 Hz (thus 16 Hz or 1 ppm)
-                ( confirmed_precision == 1 &&                     // - It takes more than 1 day to arrive at 1 Hz precision
-                  abs(ee_adjust-adjust) > 0 ) )                   //   thus it acceptable to always write
+            if (Configuration::has_stable_ambient_temperature
+                  ? (confirmed_precision < abs(ee_precision) ||        // - precision better than it used to be
+                     ( abs(ee_precision) < 8 &&                        // - precision better than 8 Hz or 0.5 ppm @ 16 MHz
+                       abs(ee_adjust-adjust) > 8 )           ||        //   deviation worse than 8 Hz (thus 16 Hz or 1 ppm)
+                     ( confirmed_precision == 1 &&                     // - It takes more than 1 day to arrive at 1 Hz precision
+                       abs(ee_adjust-adjust) > 0 ) )                   //   thus it acceptable to always write
+                  : abs(ee_adjust-adjust) > 8 )                        // - instable ambient temperature and deviation worse than 0.5 ppm
             {
                 int16_t new_ee_adjust;
                 int8_t  new_ee_precision;
@@ -1696,16 +1715,17 @@ namespace Internal {  // DCF77_Frequency_Control
     void DCF77_Frequency_Control::setup() {}
     #endif
     void DCF77_Frequency_Control::debug() {
+        using namespace Debug;
         sprintln(F("confirmed_precision ?? adjustment, deviation, elapsed"));
-        sprint(confirmed_precision);
-        sprint(F(" pp16m "));
+        sprintpp16m(confirmed_precision);
+        sprint(F(", "));
         sprint(calibration_state.running? '@': '.');
         sprint(calibration_state.qualified? '+': '-');
         sprint(' ');
 
         sprint(F(", "));
-        sprint(Generic_1_kHz_Generator::read_adjustment());
-        sprint(F(" pp16m, "));
+        sprintpp16m(Generic_1_kHz_Generator::read_adjustment());
+        sprint(F(", "));
 
         sprint(deviation);
         sprint(F(" ticks, "));
@@ -1759,13 +1779,26 @@ namespace Internal {
             defined(__AVR_ATmega2560__) || \
             defined(__AVR_AT90USB646__) || \
             defined(__AVR_AT90USB1286__)
+
+        // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
+        // For 16 MHz this will result in 1 ms ticks, for 8 Mhz it will result
+        // in 2 ms ticks.
+        const uint8_t OCR2A_standard = 249;
+        #if (F_CPU == 16000000L) or (F_CPU == 8000000L)
+            // 250 / 16 000 000 = 1 / 64 000
+            const uint16_t inverse_timer_resolution = 64000uL;
+        #else
+            #error Unsupported CPU clock frequency, only 8 MHz or 16 MHz clocks are supported.
+        #endif
+        const uint8_t OCR2A_slower = OCR2A_standard + 1;
+        const uint8_t OCR2A_faster = OCR2A_standard - 1;
+
         void init_timer_2() {
             // Timer 2 CTC mode, prescaler 64
             TCCR2B = (0<<WGM22) | (1<<CS22);
             TCCR2A = (1<<WGM21) | (0<<WGM20);
 
-            // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
-            OCR2A = 249;
+            OCR2A = OCR2A_standard;
 
             // enable Timer 2 interrupts
             TIMSK2 = (1<<OCIE2A);
@@ -1785,24 +1818,38 @@ namespace Internal {
 
         void isr_handler() {
             cumulated_phase_deviation += adjust_pp16m;
-            // 1 / 250 / 64000 = 1 / 16 000 000
-            if (cumulated_phase_deviation >= 64000) {
-                cumulated_phase_deviation -= 64000;
-                // cumulated drift exceeds 1 timer step (4 microseconds)
+            // 250 / 16 000 000 = 1 / 64 000
+            if (cumulated_phase_deviation >= inverse_timer_resolution) {
+                cumulated_phase_deviation -= inverse_timer_resolution;
+                // cumulated drift exceeds 1 timer step
                 // drop one timer step to realign
-                OCR2A = 248;
+                OCR2A = OCR2A_faster;
             } else
-            if (cumulated_phase_deviation <= -64000) {
-                // cumulated drift exceeds 1 timer step (4 microseconds)
+            if (cumulated_phase_deviation <= -inverse_timer_resolution) {
+                // cumulated drift exceeds 1 timer step
                 // insert one timer step to realign
-                cumulated_phase_deviation += 64000;
-                OCR2A = 250;
+                cumulated_phase_deviation += inverse_timer_resolution;
+                OCR2A = OCR2A_slower;
             } else {
-                // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
-                OCR2A = 249;
+                OCR2A = OCR2A_standard;
             }
 
             Clock_Controller::process_1_kHz_tick_data(the_input_provider());
+            #if F_CPU == 8000000L
+            // if we are running @ 8Mhz, sample twice per period to achieve
+            // 1 kHz sampling rate. Of course the samples wil not be evenly spaced.
+            // but this does not really matter. Effectively we are still
+            // oversampling 5 times. Also the resolution of the phase lock
+            // is only 10 ms. Thus 1 ms jitter in the sample rate is fully
+            // acceptable.
+            // The approach is very slightly better results than
+            // sampling at 500 Hz. The main advantage is that all library
+            // users that rely on 1 kHz ticks will still work if they
+            // do not rely on evenly spaced ticks. It also implies that
+            // the code changes for the 8 MHz version are minimized and thus
+            // the potential for introducing bugs is lower.
+            Clock_Controller::process_1_kHz_tick_data(the_input_provider());
+            #endif
         }
         #endif
 
@@ -1814,16 +1861,18 @@ namespace Internal {
 
         const uint32_t ticks_per_ms = SystemCoreClock/1000;
         const uint32_t ticks_per_us = ticks_per_ms/1000;
+        // 1000 / 16 000 000 = 1 / 16 000
+        const uint16_t inverse_timer_resolution = 16000;
 
         void isr_handler() {
             cumulated_phase_deviation += adjust_pp16m;
-            if (cumulated_phase_deviation >= 16000) {
-                cumulated_phase_deviation -= 16000;
+            if (cumulated_phase_deviation >= inverse_timer_resolution) {
+                cumulated_phase_deviation -= inverse_timer_resolution;
                 // cumulated drift exceeds microsecond)
                 // drop microsecond step to realign
                 SysTick->LOAD = ticks_per_ms - ticks_per_us;
-            } else if (cumulated_phase_deviation <= -16000) {
-                cumulated_phase_deviation += 16000;
+            } else if (cumulated_phase_deviation <= -inverse_timer_resolution) {
+                cumulated_phase_deviation += inverse_timer_resolution;
                 // cumulated drift exceeds 1 microsecond
                 // insert one microsecond to realign
                 SysTick->LOAD = ticks_per_ms + ticks_per_us;

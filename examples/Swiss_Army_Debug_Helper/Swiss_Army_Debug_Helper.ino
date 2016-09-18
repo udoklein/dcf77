@@ -1,4 +1,4 @@
-//
+// //
 //  www.blinkenlight.net
 //
 //  Copyright 2015 Udo Klein
@@ -34,7 +34,7 @@ const uint8_t dcf77_inverted_samples = 1;
 // The Blinkenlighty requires 1 this because the input
 // pins are loaded with LEDs. All others should prefer
 // setting this to 0 as this reduces interrupt contention.
-const uint8_t dcf77_analog_samples = 1;
+const uint8_t dcf77_analog_samples = 0;
 
 const uint8_t dcf77_monitor_led = 18;
 
@@ -542,6 +542,7 @@ namespace Parser {
         Serial.println(F("    S: scope high resolution"));
         Serial.println(F("    m: multi mode debug + scope"));
         Serial.println(F("    a: analyze frequency"));
+        Serial.println(F("    A: Analyze phase drift, more details"));
         Serial.println(F("    b: demodulator bins"));
         Serial.println(F("    B: detailed demodulator bins"));
         Serial.println(F("    r: raw output"));
@@ -612,6 +613,7 @@ namespace Parser {
                                 case 'm':  // multi mode debug + scope
                                 case 'S':  // hight resolution scope
                                 case 'a':  // analyze phase drift
+                                case 'A':  // Analyze phase drift, more details
                                 case 'b':  // demodulator bins
                                 case 'B':  // more on demodulator bins
                                 case 'r':  // raw
@@ -626,6 +628,11 @@ namespace Parser {
             help_on_none_space(c);
         }
     }
+}
+
+void sprintlnpp16m(int16_t pp16m) {
+    Debug::sprintpp16m(pp16m);
+    sprintln();
 }
 
 void setup() {
@@ -658,6 +665,8 @@ void setup() {
     Serial.println();
     Serial.print(F("Phase_lock_resolution [ticks per second]: "));
     Serial.println(Configuration::phase_lock_resolution);
+    Serial.print(F("Has stable ambient temperature: "));
+    Serial.println(Configuration::has_stable_ambient_temperature);
 
     Serial.println();
     Serial.print(F("Sample Pin:     ")); Serial.println(dcf77_sample_pin);
@@ -666,15 +675,16 @@ void setup() {
     Serial.print(F("Analog Mode:    ")); Serial.println(dcf77_analog_samples);
     #endif
     Serial.print(F("Monitor Led:    ")); Serial.println(LED_Display::dcf77_monitor_led);
-    Serial.print(F("Freq. Adjust:   ")); Serial.println(Generic_1_kHz_Generator::read_adjustment());
 
+    Serial.println();
+    #if defined(_AVR_EEPROM_H_)
     int8_t  adjust_steps;
     int16_t adjust;
-    #if defined(_AVR_EEPROM_H_)
     DCF77_Frequency_Control::read_from_eeprom(adjust_steps, adjust);
-    Serial.print(F("EE Precision:   ")); Serial.println(adjust_steps);
-    Serial.print(F("EE Freq. Adjust:")); Serial.println(adjust);
+    Serial.print(F("EE Precision:   ")); sprintlnpp16m(adjust_steps);
+    Serial.print(F("EE Freq. Adjust:")); sprintlnpp16m(adjust);
     #endif
+    Serial.print(F("Freq. Adjust:   ")); sprintlnpp16m(Generic_1_kHz_Generator::read_adjustment());
 
     Serial.println();
 
@@ -694,13 +704,34 @@ void loop() {
 
     switch (mode) {
         case 'q': break;
+        case 'A':
         case 'a': {
             Clock::time_t now;
             DCF77_Clock::get_current_time(now);
 
+            if (mode == 'A') {
+                Serial.println();
+                Scope::print();
+                #if defined(__AVR__)
+                Serial.println();
+                Serial.print(F("TCNT2: "));
+                Serial.println(TCNT2);
+                #endif
+            }
             DCF77_Frequency_Control::debug();
             Phase_Drift_Analysis::debug();
             //DCF77_Demodulator::debug();
+            if (mode == 'A') {
+                if (now.month.val > 0) {
+                    Serial.println();
+                    Serial.print(F("Decoded time: "));
+
+                    DCF77_Clock::print(now);
+                    Serial.println();
+                }
+
+                DCF77_Clock::debug();
+            }
 
             break;
         }

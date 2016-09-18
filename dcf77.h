@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2015 Udo Klein
+//  Copyright 2016 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@
 
     OUTDATED_COMPILER_ERROR(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
 #endif
+
 
 #ifndef dcf77_h
 #define dcf77_h
@@ -117,6 +118,25 @@ struct Configuration {
     // this is the actuall sample rate
     static const ticks_per_second_t phase_lock_resolution = high_phase_lock_resolution ? milli_seconds
                                                                                        : centi_seconds;
+
+    // Set to true if the library is deployed in a device runnning at room temperature.
+    // Set to false if the library is deployed in a device operating outdoors.
+    // The implications are as follows:
+    // Outdoors there are larger temperature deviations than indoors. In particular there are
+    // significant differences between night and day temperatures. As a consequence there will
+    // significant frequency deviations between night and daytime operation. It follows
+    // that it is pointless to tune the crystal over periods that exceed several hours.
+    // Hence setting this to false will limit the measurement period to several hours.
+    // If the clock will be deployed outdoors and this is set to true then it may
+    // happen that it initially works as it should be loses sync once the crystal is tuned.
+    // This is a nasty issue that will only show up if the clock is running for several
+    // days AND the temperature swings are high.
+    // If you are "indoors" this should never be an issue but for outdoor use set this to false.
+    // The price to pay is that during DCF77 outage beyond several hours resync will take
+    // longer. It will also imply that the crystal will never be tuned better than 1 ppm as
+    // this is completely pointless in the presence of huge changes in ambient temperature.
+    static const boolean has_stable_ambient_temperature = true;     // indoor deployment
+    // static const boolean has_stable_ambient_temperature = false; // outdoor deployment
 };
 
 
@@ -1479,12 +1499,13 @@ namespace Internal {
         // 5334 * 6000 = 32 004 000 // 534 * 60000 = 32 040 000
         static const uint16_t tau_max_minutes = 32000000uL / (60uL * Configuration::phase_lock_resolution) + 1;
 
-        // 1600 Hz@16MHz = 100 ppm = 16 pp16m
+        // 6400 Hz@16MHz = 400 ppm = 64 pp16m
         // Theoretically higher values would be possible.
-        // However if a tuning beyond 100 ppm is necessary then there is something
-        // fundamentally wrong with the oscillator.
+        // However if a tuning beyond 400 ppm is necessary then there is something
+        // fundamentally wrong with the oscillator. Actually 100 ppm is already
+        // poor for a crystal oscillator.
         // Unit of measure is parts per 16 Million [pp16m]
-        static const int16_t max_total_adjust = 1600;
+        static const int16_t max_total_adjust = 6400;
 
         static volatile int8_t confirmed_precision;
 
@@ -1495,12 +1516,12 @@ namespace Internal {
 
         // 2*tau_max = 32 004 000 ticks = 5333 minutes or 533 minutes depending on the resolution
         //  60 000 centi seconds = 10 minutes
-        // 600 000 milli seconds =  1 minute
+        //  60 000 milli seconds =  1 minute
         // maximum drift in 32 004 000 ticks @ 900 ppm would result
         // in a drift of +/- 28800 ticks
         // thus it is uniquely measured if we know it mod 60 000
         // However in the centi seconds case we will require slighty more
-        // complicated logic due to the additional divider
+        // complicated logic due to the additional divider.
         //template <Configuration::ticks_per_second_t phase_lock_resolution>
         struct generic_deviation_tracker_t {
             volatile uint16_t elapsed_minutes;
@@ -1533,7 +1554,8 @@ namespace Internal {
             }
 
             bool timeout() {
-                return elapsed_minutes >= tau_max_minutes;
+                return Configuration::has_stable_ambient_temperature ? elapsed_minutes >= tau_max_minutes
+                                                                     : elapsed_minutes >= tau_min_minutes;
             }
 
             bool good_enough() {
@@ -1542,8 +1564,8 @@ namespace Internal {
         };
 
         struct averaging_deviation_tracker_t : generic_deviation_tracker_t {
-            uint8_t  start_minute_mod_10;
-            uint8_t  divider = 0;
+            uint8_t start_minute_mod_10;
+            uint8_t divider = 0;
 
             void start(const uint8_t minute_mod_10) {
                 generic_deviation_tracker_t::start(minute_mod_10);
@@ -1655,12 +1677,7 @@ namespace Internal {
         void debug_helper(char data);
         void bcddigit(uint8_t data);
         void bcddigits(uint8_t data);
-    }
-
-    namespace Debug {
-        void debug_helper(char data);
-        void bcddigit(uint8_t data);
-        void bcddigits(uint8_t data);
+        void sprintpp16m(int16_t pp16m);
     }
 
     namespace DCF77_Naive_Bitstream_Decoder {
@@ -1984,8 +2001,15 @@ namespace Internal {
         }
 
         static void on_tuned_clock() {
-            Demodulator.set_has_tuned_clock();
-            Local_Clock.set_has_tuned_clock();
+            if (Configuration::has_stable_ambient_temperature) {
+                // If ambient temperature is not stable tuning
+                // the crystal is no guarantee for reasonable
+                // accurate local frequency. Hence we will
+                // propagate the event only if ambient
+                // temperature is considered stable.
+                Demodulator.set_has_tuned_clock();
+                Local_Clock.set_has_tuned_clock();
+            }
         };
 
         static void phase_lost_event_handler() {
