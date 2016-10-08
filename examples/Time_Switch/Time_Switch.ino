@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2015 Udo Klein
+//  Copyright 2016 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,8 @@ const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = A5;  // A5 == d19
 const uint8_t dcf77_inverted_samples = 1;
 const uint8_t dcf77_analog_samples = 1;
-const uint8_t dcf77_pull_up = 1;
+// const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
+const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
 
 const uint8_t dcf77_monitor_pin = A4;  // A4 == d18
 
@@ -1343,9 +1344,7 @@ uint8_t lock_progress() {
 
 void setup() {
     pinMode(dcf77_monitor_pin, OUTPUT);
-
-    pinMode(dcf77_sample_pin, INPUT);
-    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
+    pinMode(dcf77_sample_pin, dcf77_pin_mode);
 
     for (uint8_t channel_pin = time_switch_channel_0_pin; channel_pin <time_switch_channel_0_pin+16; ++channel_pin) {
         pinMode(channel_pin, OUTPUT);
@@ -1359,11 +1358,12 @@ void setup() {
 
     Serial.begin(115200);
     Serial.println();
-    Serial.println(F("DCF77 Timeswitch V3.0"));
-    Serial.println(F("(c) Udo Klein 2015"));
+    Serial.println(F("DCF77 Timeswitch V3.1.1"));
+    Serial.println(F("(c) Udo Klein 2016"));
     Serial.println(F("www.blinkenlight.net"));
     Serial.println();
     Serial.print(F("Sample Pin:    ")); Serial.println(dcf77_sample_pin);
+    Serial.print(F("Sample Pin Mode: ")); Serial.println(dcf77_pin_mode);
     Serial.print(F("Inverted Mode: ")); Serial.println(dcf77_inverted_samples);
     Serial.print(F("Analog Mode:   ")); Serial.println(dcf77_analog_samples);
     Serial.print(F("Monitor Pin:   ")); Serial.println(dcf77_monitor_pin);

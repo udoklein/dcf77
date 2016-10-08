@@ -1479,7 +1479,7 @@ namespace Internal {
                 case Clock::unlocked: sprintln(F("unlocked")); break;
                 case Clock::locked:   sprintln(F("locked"));   break;
                 case Clock::synced:   sprintln(F("synced"));   break;
-                default:       sprintln(F("undefined"));
+                default:              sprintln(F("undefined"));
             }
             sprint(F("Tick: "));
             sprintln(tick);

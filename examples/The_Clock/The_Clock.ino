@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2015 Udo Klein
+//  Copyright 2016 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -21,7 +21,9 @@
 // which pin the clock module is connected to
 const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = 19; // A5
-const uint8_t dcf77_pull_up = 1;
+// const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
+const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
+
 
 // Automatic polarity detection reduces noise tolerance.
 // So if you expect poor reception, disable the auto detection
@@ -296,9 +298,7 @@ void help() {
 
 void setup() {
     pinMode(dcf77_monitor_pin, OUTPUT);
-
-    pinMode(dcf77_sample_pin, INPUT);
-    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
+    pinMode(dcf77_sample_pin, dcf77_pin_mode);
 
     setup_output_pins();
 
@@ -308,20 +308,21 @@ void setup() {
 
     Serial.begin(115200);
     Serial.println();
-    Serial.println(F("DCF77 Clock V3.0"));
-    Serial.println(F("(c) Udo Klein 2015"));
+    Serial.println(F("DCF77 Clock V3.1.1"));
+    Serial.println(F("(c) Udo Klein 2016"));
     Serial.println(F("www.blinkenlight.net"));
     Serial.println();
-    Serial.print(F("Sample Pin:    ")); Serial.println(dcf77_sample_pin);
+    Serial.print(F("Sample Pin:      ")); Serial.println(dcf77_sample_pin);
+    Serial.print(F("Sample Pin Mode: ")); Serial.println(dcf77_pin_mode);
     #ifndef auto_detect_sample_polarity
-    Serial.print(F("Inverted Mode: ")); Serial.println(dcf77_inverted_samples);
+    Serial.print(F("Inverted Mode:   ")); Serial.println(dcf77_inverted_samples);
     #else
     Serial.println(F("Automatic Detection Mode "));
     #endif
 
-    Serial.print(F("Analog Mode:   ")); Serial.println(dcf77_analog_samples);
-    Serial.print(F("Monitor Pin:   ")); Serial.println(dcf77_monitor_pin);
-    Serial.print(F("Drift Adjust:  ")); Serial.println(Internal::Generic_1_kHz_Generator::read_adjustment());
+    Serial.print(F("Analog Mode:     ")); Serial.println(dcf77_analog_samples);
+    Serial.print(F("Monitor Pin:     ")); Serial.println(dcf77_monitor_pin);
+    Serial.print(F("Drift Adjust:    ")); Serial.println(Internal::Generic_1_kHz_Generator::read_adjustment());
     Serial.println();
     help();
     Serial.println();
@@ -363,7 +364,6 @@ void loop() {
         typedef Internal::DCF77_Clock_Controller<Configuration, Internal::DCF77_Frequency_Control> Clock_Controller;
         //Clock_Controller::Second_Decoder.debug();
         Clock_Controller::Local_Clock.debug();
-
     }
 
     if (mode == 'd') {

@@ -1,7 +1,7 @@
 // //
 //  www.blinkenlight.net
 //
-//  Copyright 2015 Udo Klein
+//  Copyright 2016 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,9 @@ const uint16_t EEPROM_base = 0x20;
 // which pin the clock module is connected to
 const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = 19; // A5
-const uint8_t dcf77_pull_up = 1;
+// const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
+const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
+
 
 const uint8_t dcf77_inverted_samples = 1;
 
@@ -46,7 +48,9 @@ uint8_t ledpin(const uint8_t led) {
 // different pin settings for ARM based arduino
 const uint8_t dcf77_sample_pin = 53;
 const uint8_t dcf77_inverted_samples = 0;
-const uint8_t dcf77_pull_up = 1;
+
+// const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
+const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
 
 const uint8_t pon_pin  = 51; // connect pon to ground !!!
 const uint8_t data_pin = 53;
@@ -61,6 +65,7 @@ uint8_t ledpin(const uint8_t led) {
 
 #define POLLIN_DCF77 1
 #endif
+
 
 using namespace Internal;
 typedef DCF77_Clock_Controller<Configuration, DCF77_Frequency_Control> Clock_Controller;
@@ -640,8 +645,7 @@ void setup() {
 
     Serial.begin(115200);
 
-    pinMode(dcf77_sample_pin, INPUT);
-    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
+    pinMode(dcf77_sample_pin, dcf77_pin_mode);
 
 #if defined(POLLIN_DCF77)
     pinMode(gnd_pin, OUTPUT);
@@ -659,8 +663,8 @@ void setup() {
     DCF77_Clock::set_output_handler(output_handler);
 
     Serial.println();
-    Serial.println(F("DCF77 Clock V3.0"));
-    Serial.println(F("(c) Udo Klein 2015"));
+    Serial.println(F("DCF77 Clock V3.1.1"));
+    Serial.println(F("(c) Udo Klein 2016"));
     Serial.println(F("www.blinkenlight.net"));
     Serial.println();
     Serial.print(F("Phase_lock_resolution [ticks per second]: "));
@@ -669,22 +673,23 @@ void setup() {
     Serial.println(Configuration::has_stable_ambient_temperature);
 
     Serial.println();
-    Serial.print(F("Sample Pin:     ")); Serial.println(dcf77_sample_pin);
-    Serial.print(F("Inverted Mode:  ")); Serial.println(dcf77_inverted_samples);
+    Serial.print(F("Sample Pin:      ")); Serial.println(dcf77_sample_pin);
+    Serial.print(F("Sample Pin Mode: ")); Serial.println(dcf77_pin_mode);
+    Serial.print(F("Inverted Mode:   ")); Serial.println(dcf77_inverted_samples);
     #if defined(__AVR__)
-    Serial.print(F("Analog Mode:    ")); Serial.println(dcf77_analog_samples);
+    Serial.print(F("Analog Mode:     ")); Serial.println(dcf77_analog_samples);
     #endif
-    Serial.print(F("Monitor Led:    ")); Serial.println(LED_Display::dcf77_monitor_led);
+    Serial.print(F("Monitor Led:     ")); Serial.println(LED_Display::dcf77_monitor_led);
 
     Serial.println();
     #if defined(_AVR_EEPROM_H_)
     int8_t  adjust_steps;
     int16_t adjust;
     DCF77_Frequency_Control::read_from_eeprom(adjust_steps, adjust);
-    Serial.print(F("EE Precision:   ")); sprintlnpp16m(adjust_steps);
-    Serial.print(F("EE Freq. Adjust:")); sprintlnpp16m(adjust);
+    Serial.print(F("EE Precision:    ")); sprintlnpp16m(adjust_steps);
+    Serial.print(F("EE Freq. Adjust: ")); sprintlnpp16m(adjust);
     #endif
-    Serial.print(F("Freq. Adjust:   ")); sprintlnpp16m(Generic_1_kHz_Generator::read_adjustment());
+    Serial.print(F("Freq. Adjust:    ")); sprintlnpp16m(Generic_1_kHz_Generator::read_adjustment());
 
     Serial.println();
 

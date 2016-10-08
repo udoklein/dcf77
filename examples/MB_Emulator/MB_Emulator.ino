@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2015 Udo Klein
+//  Copyright 2016 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -31,7 +31,8 @@ const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = A5;  // A5 == d19
 const uint8_t dcf77_inverted_samples = 1;
 const uint8_t dcf77_analog_samples = 1;
-const uint8_t dcf77_pull_up = 1;
+// const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
+const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
 const uint8_t dcf77_signal_good_indicator_pin = 13;
 
 const uint8_t dcf77_monitor_pin = A4;  // A4 == d18
@@ -60,14 +61,15 @@ void setup() {
     SerialUSB.begin(9600, SERIAL_7E2);
     #endif
     println();
-    println(F("Meinberg Emulator V3.0"));
-    println(F("(c) Udo Klein 2015"));
+    println(F("Meinberg Emulator V3.1.1"));
+    println(F("(c) Udo Klein 2016"));
     println(F("www.blinkenlight.net"));
     println();
-    print(F("Sample Pin:    ")); println(dcf77_sample_pin);
-    print(F("Inverted Mode: ")); println(dcf77_inverted_samples);
-    print(F("Analog Mode:   ")); println(dcf77_analog_samples);
-    print(F("Monitor Pin:   ")); println(dcf77_monitor_pin);
+    print(F("Sample Pin:      ")); println(dcf77_sample_pin);
+    print(F("Sample Pin Mode: ")); Serial.println(dcf77_pin_mode);
+    print(F("Inverted Mode:   ")); println(dcf77_inverted_samples);
+    print(F("Analog Mode:     ")); println(dcf77_analog_samples);
+    print(F("Monitor Pin:     ")); println(dcf77_monitor_pin);
     print(F("Signal Good Indicator Pin: ")); println(dcf77_signal_good_indicator_pin);
     println();
     println();
@@ -75,10 +77,7 @@ void setup() {
     println();
 
     pinMode(dcf77_monitor_pin, OUTPUT);
-
-    pinMode(dcf77_sample_pin, INPUT);
-    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
-
+    pinMode(dcf77_sample_pin, dcf77_pin_mode);
     pinMode(dcf77_signal_good_indicator_pin, OUTPUT);
     digitalWrite(dcf77_signal_good_indicator_pin, LOW);
 

@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2015 Udo Klein
+//  Copyright 2016 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,8 @@ const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = 19;  // A5 == D19 for standard Arduinos
 const uint8_t dcf77_inverted_samples = 1;
 const uint8_t dcf77_analog_samples = 0;
-const uint8_t dcf77_pull_up = 1;
+// const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
+const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
 
 const uint8_t dcf77_monitor_led = 18; // A4 == D18 for standard Arduinos
 
@@ -45,7 +46,9 @@ uint8_t ledpin(const int8_t led) {
 
 const uint8_t dcf77_sample_pin = 53;
 const uint8_t dcf77_inverted_samples = 0;
-const uint8_t dcf77_pull_up = 1;
+
+// const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
+const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
 
 const uint8_t dcf77_monitor_led = 18;
 
@@ -173,8 +176,7 @@ void setup() {
     digitalWrite(vcc_pin, HIGH);
     #endif
 
-    pinMode(dcf77_sample_pin, INPUT);
-    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
+    pinMode(dcf77_sample_pin, dcf77_pin_mode);
 
     pinMode(dcf77_monitor_led, OUTPUT);
     for (uint8_t led = lower_output_led; led <= upper_output_led; ++led) {

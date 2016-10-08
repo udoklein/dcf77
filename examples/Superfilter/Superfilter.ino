@@ -1,7 +1,7 @@
 //
 //  www.blinkenlight.net
 //
-//  Copyright 2014, 2015 Udo Klein
+//  Copyright 2016 Udo Klein
 //
 //  This program is free software: you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,8 @@ const uint8_t dcf77_analog_samples = false;
 const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = 19; // A5
 const uint8_t dcf77_inverted_samples = 0;
-const uint8_t dcf77_pull_up = 1;
+// const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
+const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
 
 #if defined(__AVR__)
 #define ledpin(led) (led)
@@ -218,11 +219,12 @@ void setup_serial() {
 
 void output_splash_screen() {
     Serial.println();
-    Serial.println(F("DCF77 Superfilter 3.0"));
-    Serial.println(F("(c) 2015 Udo Klein"));
+    Serial.println(F("DCF77 Superfilter 3.1.1"));
+    Serial.println(F("(c) 2016 Udo Klein"));
     Serial.println(F("www.blinkenlight.net"));
     Serial.println();
     Serial.print(F("Sample Pin:               ")); Serial.println(dcf77_sample_pin);
+    Serial.print(F("Sample Pin Mode:          ")); Serial.println(dcf77_pin_mode);
     Serial.print(F("Inverted Mode:            ")); Serial.println(dcf77_inverted_samples);
     #if defined(__AVR__)
     Serial.print(F("Analog Mode:              ")); Serial.println(dcf77_analog_samples);
@@ -286,8 +288,7 @@ void setup_pins() {
     pinMode(dcf77_monitor_pin, OUTPUT);
     pinMode(dcf77_signal_good_indicator_pin, OUTPUT);
     pinMode(dcf77_second_pulse_pin, OUTPUT);
-    pinMode(dcf77_sample_pin, INPUT);
-    digitalWrite(dcf77_sample_pin, dcf77_pull_up);
+    pinMode(dcf77_sample_pin, dcf77_pin_mode);
 }
 
 void setup_clock() {
