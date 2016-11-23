@@ -5819,6 +5819,53 @@ void test_Minute_Decoder() {
         assert(F("quality 6-4"), lq.lock_max == 6 && lq.noise_max == 4,
                  lq.lock_max, lq.noise_max, lq.lock_max - lq.noise_max);
     }
+
+    {   // 10 times 13 followed by 10 times 14
+        DCF77_Minute_Decoder Minute_Decoder;
+        Minute_Decoder.setup();
+
+        for (uint8_t pass = 0; pass < 10; ++pass) {
+            for (uint8_t second = 0; second < 60; ++second) {
+                Minute_Decoder.process_tick(second,
+                                            second == 21 ? 1 :
+                                            second == 22 ? 1 :
+                                            second == 23 ? 0 :
+                                            second == 24 ? 0 :
+                                            second == 25 ? 1 :
+                                            second == 26 ? 0 :
+                                            second == 27 ? 0 :
+                                            second == 28 ? 1 :
+                                            0);
+            }
+        }
+        assert(F("properly lock to 13"), Minute_Decoder.get_time_value().val == (uint8_t)0x13,
+                 Minute_Decoder.get_time_value().val);
+        Binning::lock_quality_tt<uint8_t> lq;
+        Minute_Decoder.get_quality(lq);
+        assert(F("quality 60-40"), lq.lock_max == 60 && lq.noise_max == 40,
+                 lq.lock_max, lq.noise_max, lq.lock_max - lq.noise_max);
+
+
+        for (uint8_t pass = 0; pass < 11; ++pass) {
+            for (uint8_t second = 0; second < 60; ++second) {
+                Minute_Decoder.process_tick(second,
+                                            second == 21 ? 0 :
+                                            second == 22 ? 0 :
+                                            second == 23 ? 1 :
+                                            second == 24 ? 0 :
+                                            second == 25 ? 1 :
+                                            second == 26 ? 0 :
+                                            second == 27 ? 0 :
+                                            second == 28 ? 0 :
+                                            0);
+            }
+        }
+        assert(F("properly lock to 14 after 13"), Minute_Decoder.get_time_value().val == (uint8_t)0x14,
+                 Minute_Decoder.get_time_value().val);
+        Minute_Decoder.get_quality(lq);
+        assert(F("quality 66-64"), lq.lock_max == 66 && lq.noise_max == 64,
+                 lq.lock_max, lq.noise_max, lq.lock_max - lq.noise_max);
+    }
 }
 
 void test_Hour_Decoder() {
@@ -6783,12 +6830,11 @@ void boilerplate() {
     Serial.println();
     Serial.print(F("Test compiled: "));
     Serial.println(F(__TIMESTAMP__));
-
 }
 
 void disable_tick_interrupts() {
     #if defined(__AVR__)
-    noInterrupts();
+    TIMSK2 = 0;
     #else
     SysTick->CTRL = 0;
     #endif
@@ -6811,6 +6857,7 @@ void setup() {
     test_Demodulator();
     test_Flag_Decoder();
     test_Binning();
+
     test_Minute_Decoder();
     test_Hour_Decoder();
     test_Day_Decoder();
