@@ -395,9 +395,8 @@ namespace Internal {  // DCF77_Weekday_Decoder
 #ifndef MSF60
         BCD_binning<uint8_t, 1, 42, 3, false, false, true>(current_second, tick_value);
 #else
-        BCD_binning<uint8_t, 1, 36, 3, false, false, false>(current_second, tick_value);
+        BCD_binning<uint8_t, 1, 36, 3, false, true, false>(current_second, tick_value);
 #endif
-
 }
 
     void DCF77_Weekday_Decoder::debug() {
@@ -533,6 +532,7 @@ namespace Internal {  // DCF77_Second_Decoder
         convolution_clock.autoset_control_bits();
 
         convolution_clock.get_serialized_clock_stream(convolution_kernel);
+
         prediction_match = 0;
     }
 
@@ -641,9 +641,9 @@ namespace Internal {  // DCF77_Second_Decoder
         }
 
         if (tick_data == DCF77::min_marker) {
-            bounded_increment<50>(this->data[this->tick]);
+            bounded_increment<6>(this->data[this->tick]);
             if (this->tick == this->max_index) {
-                prediction_match += 50;
+                prediction_match += 6;
             }
         } else if (tick_data == DCF77::A0_B0 || tick_data == DCF77::A0_B1 || tick_data == DCF77::A1_B0 || tick_data == DCF77::A1_B1) {
 
@@ -780,6 +780,11 @@ namespace Internal {  // DCF77_Second_Decoder
         return (tick >= n ? tick - n: tick + seconds_per_minute - n);
     }
 
+    uint8_t runOfOnes=false;
+    uint8_t runOfZeros=false;
+    boolean seenZeros=0;
+    boolean seenOnes=0;
+
     void DCF77_Second_Decoder::sync_mark_binning(const uint8_t tick_data) {
         // We use a binning approach to find out the proper phase.
         // The goal is to localize the sync_mark. Due to noise
@@ -813,48 +818,78 @@ namespace Internal {  // DCF77_Second_Decoder
         using namespace Arithmetic_Tools;
 
         switch (tick_data) {
+            case DCF77::A0_B0:
+            case DCF77::A0_B1:
+                if (seenOnes) {
+                    seenOnes=false;
+                    runOfZeros=1;
+                } else
+                {
+                    runOfZeros++;
+                }
+                seenZeros=true;
+                break;
+            case DCF77::A1_B0:
+            case DCF77::A1_B1:
+                if (seenZeros) {
+                    seenZeros=false;
+                    runOfOnes=1;
+                } else
+                {
+                    runOfOnes++;
+                }
+                seenOnes=true;
+                break;
+            default:
+                break;
+        }
+
+        switch (tick_data) {
             case DCF77::min_marker:
                 bounded_increment<10>(data[tick]);
+                if ((runOfZeros==1)&&(runOfOnes==6)) {
+                    bounded_increment<10>(data[tick]);
+                }
                 break;
 
-            case DCF77::A0_B0:
-                for (uint8_t i=1; i<=51; ++i) {
-                    bounded_increment<1>(this->data[get_previous_n_tick(i)]);
-                }
-                bounded_increment<2>(data[get_previous_n_tick(52)]);
-                bounded_increment<2>(data[get_previous_n_tick(59)]);
-                bounded_decrement<60>(data[tick]);
-                break;
+//            case DCF77::A0_B0:
+//                for (uint8_t i=1; i<=51; ++i) {
+//                    bounded_increment<1>(this->data[get_previous_n_tick(i)]);
+//                }
+//                bounded_increment<2>(data[get_previous_n_tick(52)]);
+//                bounded_increment<2>(data[get_previous_n_tick(59)]);
+//                bounded_decrement<60>(data[tick]);
+//                break;
 
-            case DCF77::A0_B1:
-                for (uint8_t i=1; i<=16; ++i) {
-                    bounded_increment<1>(data[get_previous_n_tick(i)]);
-                }
-                bounded_increment<1>(data[get_previous_n_tick(52)]);
-                bounded_increment<1>(data[get_previous_n_tick(59)]);
-                bounded_decrement<60>(data[tick]);
-                break;
+//            case DCF77::A0_B1:
+//                for (uint8_t i=1; i<=16; ++i) {
+//                    bounded_increment<1>(data[get_previous_n_tick(i)]);
+//                }
+//                bounded_increment<1>(data[get_previous_n_tick(52)]);
+//                bounded_increment<1>(data[get_previous_n_tick(59)]);
+//                bounded_decrement<60>(data[tick]);
+//                break;
 
-            case DCF77::A1_B0:
-                for (uint8_t i=17; i<=59; ++i) {
-                    bounded_increment<1>(data[get_previous_n_tick(i)]);
-                }
-                bounded_decrement<60>(data[tick]);
-                break;
+//            case DCF77::A1_B0:
+//                for (uint8_t i=17; i<=59; ++i) {
+//                    bounded_increment<1>(data[get_previous_n_tick(i)]);
+//                }
+//                bounded_decrement<60>(data[tick]);
+//                break;
 
-            case DCF77::A1_B1:
-                for (uint8_t i=53; i<=58; ++i) {
-                    bounded_increment<1>(data[get_previous_n_tick(i)]);
-                }
-                bounded_decrement<60>(data[tick]);
-                break;
+//            case DCF77::A1_B1:
+//                for (uint8_t i=53; i<=58; ++i) {
+//                    bounded_increment<1>(data[get_previous_n_tick(i)]);
+//                }
+//                bounded_decrement<60>(data[tick]);
+//                break;
 
             case DCF77::undefined:
-                bounded_decrement<55>(data[tick]);
+                bounded_decrement<10>(data[tick]);
                 break;
 
             default:
-                bounded_decrement<60>(data[tick]);
+                bounded_decrement<10>(data[tick]);
         }
 
         tick = tick<seconds_per_minute-1 ? tick+1: 0;

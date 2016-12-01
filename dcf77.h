@@ -852,7 +852,11 @@ namespace Internal {
 
                 const index_t offset = (number_of_bins == 60 ||
                                         number_of_bins == 24 ||
-                                        number_of_bins == 10)? 0x00: 0x01;
+                                        number_of_bins == 10
+#ifdef MSF60
+                        || number_of_bins == 7
+#endif
+                                       )? 0x00: 0x01;
 
                 if (this->max - this->noise_max >= threshold) {
                     return BCD::int_to_bcd((this->max_index + this->tick + 1) % number_of_bins + offset);
@@ -864,7 +868,7 @@ namespace Internal {
             }
 
             void debug() {
-                this->debug();
+                //this->debug();
 
                 for (index_t index = 0; index < number_of_bins; ++index) {
                     sprint((index == this->max_index ||
@@ -896,6 +900,7 @@ namespace Internal {
                 // for days, weeks, month we have no parity and start counting at 1
                 // for years and decades we have no parity and start counting at 0
                 bcd_t candidate;
+                //TODO: This probably should take into account Weekday 0..6 for MSF60
                 candidate.val = (with_parity || number_of_bins == 10)? 0x00: 0x01;
                 for (index_t pass=0; pass < number_of_bins; ++pass) {
                     if (with_parity) {
@@ -2291,10 +2296,21 @@ namespace Internal {
                 now.second  = Second_Decoder.get_time_value();
                 now.minute  = Minute_Decoder.get_time_value();
                 now.hour    = Hour_Decoder.get_time_value();
-                now.weekday = Weekday_Decoder.get_time_value();
                 now.day     = Day_Decoder.get_time_value();
                 now.month   = Month_Decoder.get_time_value();
                 now.year    = Year_Decoder.get_time_value();
+
+                // Obtain Calculated Weekday using Day, Month, Year
+                BCD::bcd_t calculatedWeekday = now.get_bcd_weekday();
+
+                BCD::bcd_t decodedWeekday = Weekday_Decoder.get_time_value();
+
+                // Adjust weekdays to be Mon 1.. Sun 7 rather than Sun 0, Mon 1.. Sat 6 MSF
+                if (calculatedWeekday.val==0) calculatedWeekday=BCD::int_to_bcd(7);
+                if (decodedWeekday.val==0) decodedWeekday=BCD::int_to_bcd(7);
+
+                // Assign Decoded Value into structure
+                now.weekday = decodedWeekday;
 
                 BCD::bcd_t weekday = now.get_bcd_weekday();
                 if (weekday.val == 0) {
@@ -2308,6 +2324,7 @@ namespace Internal {
             }
 
             minimize(quality_factor, date_quality_factor);
+
             return quality_factor;
         };
 
@@ -2405,6 +2422,7 @@ namespace Internal {
             Demodulator.setup();
             phase_lost_event_handler();
             Frequency_Control::setup();
+            Local_Clock.setup();
         }
 
         static void debug() {
