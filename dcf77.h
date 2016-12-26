@@ -1294,7 +1294,7 @@ namespace Internal {
         void process_1_Hz_tick(const DCF77_Encoder &decoded_time) {
             uint8_t quality_factor = Clock_Controller::get_overall_quality_factor();
 
-            if (quality_factor > 1) {
+            if (quality_factor > 2) {
                 if (clock_state != Clock::synced) {
                     Clock_Controller::sync_achieved_event_handler();
                     clock_state = Clock::synced;
