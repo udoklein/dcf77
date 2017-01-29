@@ -49,7 +49,10 @@
 #define dcf77_h
 
 #include <stdint.h>
+
+#if defined(ARDUINO)
 #include "Arduino.h"
+#endif
 
 struct Configuration {
     // The Configuration holds the configuration of the clock library.
@@ -351,7 +354,7 @@ namespace Internal {
         BCD::bcd_t hour;     // 0..23
         BCD::bcd_t minute;   // 0..59
         uint8_t second;      // 0..60
-        bool uses_summertime                : 1;  // false -> wintertime, true, summertime
+        bool uses_summertime                : 1;  // false -> wintertime, true -> summertime
         bool abnormal_transmitter_operation : 1;  // typically false
         bool timezone_change_scheduled      : 1;
         bool leap_second_scheduled          : 1;
@@ -503,6 +506,10 @@ namespace Internal {
         // --> http://www.nongnu.org/avr-libc/user-manual/atomic_8h_source.html
         #define CRITICAL_SECTION for (int primask_save __attribute__((__cleanup__(__int_restore_irq))) = __int_disable_irq(), __n = 1; __n; __n = 0)
 
+    #elif defined(__linux__) && defined(__unit_test__)
+        #warning Compiling for Linux target only supported for unit test purposes. Only fake support for atomic sections. Please take care.
+
+        #define CRITICAL_SECTION for (int __n = 1; __n; __n = 0)
     #else
         #error Unsupported controller architecture
     #endif
@@ -545,9 +552,9 @@ namespace Internal {
             data_t  data[number_of_bins];
             index_t tick;
 
-            noise_type  noise_max;
-            noise_type  max;
-            index_t     max_index;
+            noise_type noise_max;
+            noise_type signal_max;
+            index_t    signal_max_index;
 
             void setup() {
                 for (index_t index = 0; index < number_of_bins; ++index) {
@@ -555,8 +562,8 @@ namespace Internal {
                 }
                 tick = 0;
 
-                max = 0;
-                max_index = number_of_bins + 1;
+                signal_max = 0;
+                signal_max_index = number_of_bins + 1;
                 noise_max = 0;
             }
 
@@ -570,29 +577,29 @@ namespace Internal {
 
             void get_quality(lock_quality_t & lock_quality) {
                 CRITICAL_SECTION {
-                    lock_quality.lock_max  = max;
+                    lock_quality.lock_max  = signal_max;
                     lock_quality.noise_max = noise_max;
                 }
             }
 
             uint8_t get_quality_factor() {
-                noise_type max;
+                noise_type signal_max;
                 noise_type delta;
 
                 CRITICAL_SECTION {
-                    max = this->max;
+                    signal_max = this->signal_max;
 
-                    if (max <= this->noise_max) {
+                    if (signal_max <= this->noise_max) {
                         return 0;
                     }
-                    delta = max - this->noise_max;
+                    delta = signal_max - this->noise_max;
                 }
 
                 if (TMP::equal<noise_type, uint32_t>::val) {
                     // noise_type equals uint32_t --> typically convolution and other integration style stuff
                     uint8_t log2_plus_1 = 0;
-                    while (max) {
-                        max >>= 1;
+                    while (signal_max) {
+                        signal_max >>= 1;
                         ++log2_plus_1;
                     }
 
@@ -621,11 +628,11 @@ namespace Internal {
                     // above 16 --> only count the position of the leading digit
 
                     uint8_t quality_factor;
-                    if (max >= 32-3) {
+                    if (signal_max >= 32-3) {
                         // delta / ld(max+3) ~ delta / ld(max)
                         uint8_t log2 = 0;
-                        while (max > 0) {
-                            max >>= 1;
+                        while (signal_max > 0) {
+                            signal_max >>= 1;
                             ++log2;
                         }
                         log2 -= 1;
@@ -645,11 +652,11 @@ namespace Internal {
                                                                       : 256/ 5;
                         quality_factor = ((uint16_t)delta * multiplier) >> 8;
 
-                    } else if (max >= 16-3) {
+                    } else if (signal_max >= 16-3) {
                         // delta / 4
                         quality_factor = delta >> 2;
 
-                    } else if (max >= 12-3) {
+                    } else if (signal_max >= 12-3) {
                         // delta / 3.5
                         // we know delta <= max < 16-3 = 13 --> delta <= 12
                         quality_factor = delta >= 11? 3:
@@ -657,14 +664,14 @@ namespace Internal {
                         delta >=  4? 1:
                         0;
 
-                    } else if (max >= 8-3) {
+                    } else if (signal_max >= 8-3) {
                         // delta / 3
                         // we know delta <= max < 12-3 = 9 --> delta <= 8
                         quality_factor = delta >= 6? 2:
                         delta >= 3? 1:
                         0;
 
-                    } else if (max >= 6-3) {
+                    } else if (signal_max >= 6-3) {
                         // delta / 2.5
                         // we know delta <= max < 8-3 = 5 --> delta <= 4
                         quality_factor = delta >= 3? 1: 0;
@@ -686,7 +693,7 @@ namespace Internal {
                 sprint(F(" Tick: "));
                 sprint(this->tick);
                 sprint(F(" Quality: "));
-                sprint(this->max, DEC);
+                sprint(this->signal_max, DEC);
                 sprint('-');
                 sprint(this->noise_max, DEC);
                 sprint(F(" Max Index: "));
@@ -713,15 +720,15 @@ namespace Internal {
 
             void compute_max_index() {
                 this->noise_max = 0;
-                this->max = 0;
-                this->max_index = number_of_bins + 1;
+                this->signal_max = 0;
+                this->signal_max_index = number_of_bins + 1;
                 for (index_t index = 0; index < number_of_bins; ++index) {
                     const data_t bin_data = this->data[index];
 
-                    if (bin_data >= this->max) {
-                        this->noise_max = this->max;
-                        this->max = bin_data;
-                        this->max_index = index;
+                    if (bin_data >= this->signal_max) {
+                        this->noise_max = this->signal_max;
+                        this->signal_max = bin_data;
+                        this->signal_max_index = index;
                     } else if (bin_data > this->noise_max) {
                         this->noise_max = bin_data;
                     }
@@ -740,8 +747,8 @@ namespace Internal {
                                         number_of_bins == 24 ||
                                         number_of_bins == 10)? 0x00: 0x01;
 
-                if (this->max - this->noise_max >= threshold) {
-                    return BCD::int_to_bcd((this->max_index + this->tick + 1) % number_of_bins + offset);
+                if (this->signal_max - this->noise_max >= threshold) {
+                    return BCD::int_to_bcd((this->signal_max_index + this->tick + 1) % number_of_bins + offset);
                 } else {
                     BCD::bcd_t undefined;
                     undefined.val = 0xff;
@@ -753,8 +760,8 @@ namespace Internal {
                 this->debug();
 
                 for (index_t index = 0; index < number_of_bins; ++index) {
-                    sprint((index == this->max_index ||
-                            index == ((this->max_index+1) % number_of_bins))
+                    sprint((index == this->signal_max_index ||
+                            index == ((this->signal_max_index+1) % number_of_bins))
                            ? '|': ',');
                     sprint(this->data[index], HEX);
                 }
@@ -839,9 +846,9 @@ namespace Internal {
                 for (index_t index = 0; index < number_of_bins; ++index) {
                     sprint((
                         // hard coded to the implicit knowledge of the phase detection convolution kernel
-                        index == this->max_index                                            ||
-                        index == ((this->max_index+1*(number_of_bins/10)) % number_of_bins) ||
-                        index == ((this->max_index+2*(number_of_bins/10)) % number_of_bins))
+                        index == this->signal_max_index                                            ||
+                        index == ((this->signal_max_index+1*(number_of_bins/10)) % number_of_bins) ||
+                        index == ((this->signal_max_index+2*(number_of_bins/10)) % number_of_bins))
                         ? '|': ',');
                         sprint(this->data[index], HEX);
                 }
@@ -970,16 +977,16 @@ namespace Internal {
                     running_max = integral;
                     running_max_index = ck_start_tick;
                 }
-                if (tick == wrap(this->max_index + 2*bins_per_200ms)) {
+                if (tick == wrap(this->signal_max_index + 2*bins_per_200ms)) {
                     running_noise_max = integral;
                 }
 
                 if (tick == 0) {
                     // one period has passed, flush the result
 
-                    this->max = running_max;
-                    this->max_index = running_max_index;
-                    this->noise_max = running_noise_max;
+                    this->signal_max       = running_max;
+                    this->signal_max_index = running_max_index;
+                    this->noise_max        = running_noise_max;
 
                     // reset running_max for next period
                     running_max = 0;
@@ -1020,8 +1027,8 @@ namespace Internal {
         void detector_stage_2(const uint8_t input) {
             const index_t current_bin = this->tick;
             if (bins_to_go == 0) {
-                if (wrap((bin_count + current_bin + 1 - this->max_index)) <= bins_per_100ms ||   // current_bin at most 100ms after phase_bin
-                    wrap((bin_count + this->max_index - current_bin)) <= 1                  ) {  // current bin at most 1 tick before phase_bin
+                if (wrap((bin_count + current_bin + 1 - this->signal_max_index)) <= bins_per_100ms ||   // current_bin at most 100ms after phase_bin
+                    wrap((bin_count + this->signal_max_index - current_bin)) <= 1                  ) {  // current bin at most 1 tick before phase_bin
                     // if phase bin varies to much during one period we will always be screwed in may ways...
                     // last tick of current second
                     Clock_Controller::flush();
@@ -1446,7 +1453,8 @@ namespace Internal {
 
         uint32_t max_unlocked_seconds;
         void set_has_tuned_clock() {
-            // even tuned resonators suck
+            // even tuned resonators suck,
+            // this is a time constant for a crystal
             max_unlocked_seconds = 30000;
         }
 

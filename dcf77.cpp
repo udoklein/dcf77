@@ -327,7 +327,7 @@ namespace Internal { // DCF77_Year_Decoder
 
     void DCF77_Year_Decoder::dump() {
         Binning::Decoder<uint8_t, 10>::dump();
-        Serial.print('/');
+        sprint('/');
         Decade_Decoder.dump();
     }
 
@@ -506,7 +506,7 @@ namespace Internal {  // DCF77_Second_Decoder
         using namespace Arithmetic_Tools;
 
         // determine sync lock
-        if (this->max - this->noise_max <= lock_threshold || get_time_value() == 3) {
+        if (this->signal_max - this->noise_max <= lock_threshold || get_time_value() == 3) {
             // after a lock is acquired this happens only once per minute and it is
             // reasonable cheap to process,
             //
@@ -516,13 +516,13 @@ namespace Internal {  // DCF77_Second_Decoder
             compute_max_index();
 
             const uint8_t convolution_weight = 50;
-            if (this->max > 255-convolution_weight) {
+            if (this->signal_max > 255-convolution_weight) {
                 // If we know we can not raise the maximum any further we
                 // will lower the noise floor instead.
                 for (uint8_t bin_index = 0; bin_index < seconds_per_minute; ++bin_index) {
                     bounded_decrement<convolution_weight>(this->data[bin_index]);
                 }
-                this->max -= convolution_weight;
+                this->signal_max -= convolution_weight;
                 bounded_decrement<convolution_weight>(this->noise_max);
             }
 
@@ -531,7 +531,7 @@ namespace Internal {  // DCF77_Second_Decoder
 
         if (tick_data == DCF77::sync_mark) {
             bounded_increment<6>(this->data[this->tick]);
-            if (this->tick == this->max_index) {
+            if (this->tick == this->signal_max_index) {
                 prediction_match += 6;
             }
         } else if (tick_data == DCF77::short_tick || tick_data == DCF77::long_tick) {
@@ -541,7 +541,7 @@ namespace Internal {  // DCF77_Second_Decoder
             uint8_t bin = this->tick>0? this->tick-1: seconds_per_minute-1;
             const bool is_match = (decoded_bit == 0);
             this->data[bin] += is_match;
-            if (bin == this->max_index) {
+            if (bin == this->signal_max_index) {
                 prediction_match += is_match;
             }
 
@@ -556,7 +556,7 @@ namespace Internal {  // DCF77_Second_Decoder
                     const bool is_match = (decoded_bit == current_bit_value);
 
                     this->data[bin] += is_match;
-                    if (bin == this->max_index) {
+                    if (bin == this->signal_max_index) {
                         prediction_match += is_match;
                     }
 
@@ -659,7 +659,7 @@ namespace Internal {  // DCF77_Second_Decoder
         this->tick = this->tick<seconds_per_minute-1? this->tick+1: 0;
 
         // determine sync lock
-        if (this->max - this->noise_max <=lock_threshold ||
+        if (this->signal_max - this->noise_max <=lock_threshold ||
             get_time_value() == 3) {
             // after a lock is acquired this happens only once per minute and it is
             // reasonable cheap to process,
@@ -672,7 +672,7 @@ namespace Internal {  // DCF77_Second_Decoder
     }
 
     uint8_t DCF77_Second_Decoder::get_time_value() {
-        if (this->max - this->noise_max >= lock_threshold) {
+        if (this->signal_max - this->noise_max >= lock_threshold) {
             // at least one sync mark and a 0 and a 1 seen
             // the threshold is tricky:
             //   higher --> takes longer to acquire an initial lock, but higher probability of an accurate lock
@@ -684,7 +684,7 @@ namespace Internal {  // DCF77_Second_Decoder
             //   1 because the seconds already advanced by 1 tick
             //   1 because the sync mark is not second 0 but second 59
 
-            uint8_t second = 2*seconds_per_minute + this->tick - 2 - this->max_index;
+            uint8_t second = 2*seconds_per_minute + this->tick - 2 - this->signal_max_index;
             while (second >= seconds_per_minute) { second-= seconds_per_minute; }
 
             return second;
