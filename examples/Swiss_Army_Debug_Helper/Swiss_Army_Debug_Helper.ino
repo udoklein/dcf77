@@ -663,12 +663,32 @@ void setup() {
     DCF77_Clock::set_output_handler(output_handler);
 
     Serial.println();
-    Serial.println(F("DCF77 Clock V3.1.1"));
-    Serial.println(F("(c) Udo Klein 2016"));
+    Serial.print(F("DCF77 Clock V"));
+    Serial.println(F(DCF77_VERSION_STRING));
+    Serial.println(F("(c) Udo Klein 2017"));
     Serial.println(F("www.blinkenlight.net"));
+    Serial.println();
+    Serial.println(F("Documentation:  https://blog.blinkenlight.net/experiments/dcf77/"));
+    Serial.println(F("Git Repository: https://github.com/udoklein/dcf77/releases/"));
+
+    Serial.println();
+    Serial.println(F(__FILE__));
+    Serial.print(F("Compiled:              "));
+    Serial.println(F(__TIMESTAMP__));
+    Serial.print(F("Architecture:          "));
+    Serial.println(F(GCC_ARCHITECTURE));
+    Serial.print(F("Compiler Version:      "));
+    Serial.println(F(__VERSION__));
+    Serial.print(F("DCF77 Library Version: "));
+    Serial.println(F(DCF77_VERSION_STRING));
+    Serial.print(F("CPU Frequency:         "));
+    Serial.println(F_CPU);
+
     Serial.println();
     Serial.print(F("Phase_lock_resolution [ticks per second]: "));
     Serial.println(Configuration::phase_lock_resolution);
+    Serial.print(F("Quality Factor Sync Threshold:  "));
+    Serial.println((int)Configuration::quality_factor_sync_threshold);
     Serial.print(F("Has stable ambient temperature: "));
     Serial.println(Configuration::has_stable_ambient_temperature);
 

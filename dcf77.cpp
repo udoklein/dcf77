@@ -1626,7 +1626,7 @@ namespace Internal {  // DCF77_Frequency_Control
     }
 
     #if defined(_AVR_EEPROM_H_)
-    volatile boolean DCF77_Frequency_Control::data_pending = false;
+    volatile bool DCF77_Frequency_Control::data_pending = false;
 
     // ID constants to see if EEPROM has already something stored
     static const char ID_u = 'u';

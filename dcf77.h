@@ -16,43 +16,20 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see http://www.gnu.org/licenses/
 
-
-#define GCC_VERSION (__GNUC__ * 10000 \
-    + __GNUC_MINOR__ * 100 \
-    + __GNUC_PATCHLEVEL__)
-
-#define ERROR_MESSAGE(major, minor, patchlevel) compiler_version__GCC_ ## major ## _ ## minor ## _ ## patchlevel ## __ ;
-#define OUTDATED_COMPILER_ERROR(major, minor, patchlevel) ERROR_MESSAGE(major, minor, patchlevel)
-
-#if GCC_VERSION < 40503
-    // Arduino 1.0.0 - 1.0.6 come with an outdated version of avr-gcc.
-    // Arduino 1.5.8 comes with a ***much*** better avr-gcc. The library
-    // will compile but fail to execute properly if compiled with an
-    // outdated avr-gcc. So here we stop here if the compiler is outdated.
-    //
-    // You may find out your compiler version by executing 'avr-gcc --version'
-
-    // Visit the compatibility section here:
-    //     http://blog.blinkenlight.net/experiments/dcf77/dcf77-library/
-    // for more details.
-    #error Outdated compiler version < 4.5.3
-    #error Absolute minimum recommended version is avr-gcc 4.5.3.
-    #error Use 'avr-gcc --version' from the command line to verify your compiler version.
-    #error Arduino 1.0.0 - 1.0.6 ship with outdated compilers.
-    #error Arduino 1.5.8 (avr-gcc 4.8.1) and above are recommended.
-
-    OUTDATED_COMPILER_ERROR(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
-#endif
-
-
 #ifndef dcf77_h
 #define dcf77_h
 
-#include <stdint.h>
 
+#define DCF77_MAJOR_VERSION 3
+#define DCF77_MINOR_VERSION 1
+#define DCF77_PATCH_VERSION 4
+
+
+#include <stdint.h>
 #if defined(ARDUINO)
 #include "Arduino.h"
 #endif
+
 
 struct Configuration {
     // The Configuration holds the configuration of the clock library.
@@ -102,25 +79,29 @@ struct Configuration {
 
     // the constant(s) below are assumed to be configured by the user of the library
 
-    static const boolean want_high_phase_lock_resolution = true;
-    //const boolean want_high_phase_lock_resolution = false;
+    static const bool want_high_phase_lock_resolution = true;
+    //const bool want_high_phase_lock_resolution = false;
 
     // end of configuration section, the stuff below
     // will compute the implications of the desired configuration,
     // ready for the compiler to consume
     #if defined(__arm__)
-    static const boolean has_lots_of_memory = true;
+    static const bool has_lots_of_memory = true;
     #else
-    static const boolean has_lots_of_memory = false;
+    static const bool has_lots_of_memory = false;
     #endif
 
-    static const boolean high_phase_lock_resolution = want_high_phase_lock_resolution &&
+    static const bool high_phase_lock_resolution = want_high_phase_lock_resolution &&
                                                       has_lots_of_memory;
 
     enum ticks_per_second_t : uint16_t { centi_seconds = 100, milli_seconds = 1000 };
     // this is the actuall sample rate
     static const ticks_per_second_t phase_lock_resolution = high_phase_lock_resolution ? milli_seconds
                                                                                        : centi_seconds;
+
+    enum quality_factor_sync_threshold_t : uint8_t { aggressive = 1, standard = 2, conservative = 3 };
+    static const uint8_t quality_factor_sync_threshold = aggressive;
+
 
     // Set to true if the library is deployed in a device runnning at room temperature.
     // Set to false if the library is deployed in a device operating outdoors.
@@ -138,9 +119,56 @@ struct Configuration {
     // The price to pay is that during DCF77 outage beyond several hours resync will take
     // longer. It will also imply that the crystal will never be tuned better than 1 ppm as
     // this is completely pointless in the presence of huge changes in ambient temperature.
-    static const boolean has_stable_ambient_temperature = true;     // indoor deployment
-    // static const boolean has_stable_ambient_temperature = false; // outdoor deployment
+    static const bool has_stable_ambient_temperature = true;     // indoor deployment
+    // static const bool has_stable_ambient_temperature = false; // outdoor deployment
 };
+
+// https://gcc.gnu.org/onlinedocs/cpp/Stringification.html
+#define EXPAND_THEN_STRINGIFY(s) STRINGIFY(s)
+#define STRINGIFY(s) #s
+#define DCF77_VERSION_STRING (EXPAND_THEN_STRINGIFY(DCF77_MAJOR_VERSION) "." \
+                              EXPAND_THEN_STRINGIFY(DCF77_MINOR_VERSION) "." \
+                              EXPAND_THEN_STRINGIFY(DCF77_PATCH_VERSION))
+
+
+#define GCC_VERSION (__GNUC__ * 10000 \
+    + __GNUC_MINOR__ * 100 \
+    + __GNUC_PATCHLEVEL__)
+
+#if defined(__arm__)
+    #define GCC_ARCHITECTURE "ARM"
+#elif defined(__AVR__)
+    #define GCC_ARCHITECTURE "AVR"
+#elif defined(__unix__)
+    #define GCC_ARCHITECTURE "UNIX"
+#else
+    #define GCC_ARCHITECTURE "unknown"
+#endif
+
+
+
+#define ERROR_MESSAGE(major, minor, patchlevel) compiler_version__GCC_ ## major ## _ ## minor ## _ ## patchlevel ## __ ;
+#define OUTDATED_COMPILER_ERROR(major, minor, patchlevel) ERROR_MESSAGE(major, minor, patchlevel)
+
+#if GCC_VERSION < 40503
+    // Arduino 1.0.0 - 1.0.6 come with an outdated version of avr-gcc.
+    // Arduino 1.5.8 comes with a ***much*** better avr-gcc. The library
+    // will compile but fail to execute properly if compiled with an
+    // outdated avr-gcc. So here we stop here if the compiler is outdated.
+    //
+    // You may find out your compiler version by executing 'avr-gcc --version'
+
+    // Visit the compatibility section here:
+    //     http://blog.blinkenlight.net/experiments/dcf77/dcf77-library/
+    // for more details.
+    #error Outdated compiler version < 4.5.3
+    #error Absolute minimum recommended version is avr-gcc 4.5.3.
+    #error Use 'avr-gcc --version' from the command line to verify your compiler version.
+    #error Arduino 1.0.0 - 1.0.6 ship with outdated compilers.
+    #error Arduino 1.5.8 (avr-gcc 4.8.1) and above are recommended.
+
+    OUTDATED_COMPILER_ERROR(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#endif
 
 
 namespace BCD {
@@ -506,7 +534,7 @@ namespace Internal {
         // --> http://www.nongnu.org/avr-libc/user-manual/atomic_8h_source.html
         #define CRITICAL_SECTION for (int primask_save __attribute__((__cleanup__(__int_restore_irq))) = __int_disable_irq(), __n = 1; __n; __n = 0)
 
-    #elif defined(__linux__) && defined(__unit_test__)
+    #elif defined(__unix__) && defined(__unit_test__)
         #warning Compiling for Linux target only supported for unit test purposes. Only fake support for atomic sections. Please take care.
 
         #define CRITICAL_SECTION for (int __n = 1; __n; __n = 0)
@@ -1301,7 +1329,7 @@ namespace Internal {
         void process_1_Hz_tick(const DCF77_Encoder &decoded_time) {
             uint8_t quality_factor = Clock_Controller::get_overall_quality_factor();
 
-            if (quality_factor > 1) {
+            if (quality_factor > Clock_Controller::Configuration::quality_factor_sync_threshold) {
                 if (clock_state != Clock::synced) {
                     Clock_Controller::sync_achieved_event_handler();
                     clock_state = Clock::synced;
@@ -1519,7 +1547,7 @@ namespace Internal {
 
         #if defined(_AVR_EEPROM_H_)
         // indicator if data may be persisted to EEPROM
-        static volatile boolean data_pending;
+        static volatile bool data_pending;
         #endif
 
         // 2*tau_max = 32 004 000 ticks = 5333 minutes or 533 minutes depending on the resolution
