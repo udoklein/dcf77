@@ -62,19 +62,19 @@ volatile uint16_t ms_counter = 0;
 volatile Internal::DCF77::tick_t tick = Internal::DCF77::undefined;
 
 
-template <bool enable, uint8_t threshold,
-          uint8_t filtered_pin, uint8_t inverted_filtered_pin, uint8_t diff_pin>
-void set_output(uint8_t clock_state, uint8_t sampled_data, uint8_t synthesized_signal)
-{
-    if (enable) {
-        const uint8_t filtered_output = clock_state < threshold? sampled_data: synthesized_signal;
-        digitalWrite(filtered_pin, filtered_output);
-        digitalWrite(inverted_filtered_pin, !filtered_output);
-        digitalWrite(diff_pin, filtered_output ^ sampled_data);
-    }
-}
-
 namespace {
+    template <bool enable, uint8_t threshold,
+            uint8_t filtered_pin, uint8_t inverted_filtered_pin, uint8_t diff_pin>
+    void set_output(uint8_t clock_state, uint8_t sampled_data, uint8_t synthesized_signal)
+    {
+        if (enable) {
+            const uint8_t filtered_output = clock_state < threshold? sampled_data: synthesized_signal;
+            digitalWrite(filtered_pin, filtered_output);
+            digitalWrite(inverted_filtered_pin, !filtered_output);
+            digitalWrite(diff_pin, filtered_output ^ sampled_data);
+        }
+    }
+
     struct Scope {
         static const uint16_t samples_per_second = 1000;
         static const uint8_t bins                = 100;

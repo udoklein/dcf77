@@ -66,7 +66,7 @@ void setup() {
     println(F("www.blinkenlight.net"));
     println();
     print(F("Sample Pin:      ")); println(dcf77_sample_pin);
-    print(F("Sample Pin Mode: ")); Serial.println(dcf77_pin_mode);
+    print(F("Sample Pin Mode: ")); println(dcf77_pin_mode);
     print(F("Inverted Mode:   ")); println(dcf77_inverted_samples);
     print(F("Analog Mode:     ")); println(dcf77_analog_samples);
     print(F("Monitor Pin:     ")); println(dcf77_monitor_pin);
