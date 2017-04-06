@@ -739,8 +739,13 @@ void loop() {
                 Scope::print();
                 #if defined(__AVR__)
                 Serial.println();
+                #if !defined(__AVR_ATmega32U4__)
                 Serial.print(F("TCNT2: "));
                 Serial.println(TCNT2);
+                #else
+                Serial.print(F("TCNT3: "));
+                Serial.println(TCNT3);
+                #endif
                 #endif
             }
             DCF77_Frequency_Control::debug();
