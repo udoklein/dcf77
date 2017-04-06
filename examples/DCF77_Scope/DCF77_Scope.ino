@@ -253,6 +253,36 @@ void setupTimer() {
 }
 #endif
 
+// timer handling depending on architecture
+#if defined(__AVR_ATmega32U4__)
+ISR(TIMER3_COMPA_vect) {
+    process_one_sample();
+}
+
+void stopTimer0() {
+    // ensure that the standard timer interrupts will not
+    // mess with msTimer2
+    TIMSK0 = 0;
+}
+
+void initTimer3() {
+    // Timer 3 CTC mode, prescaler 64
+    TCCR3B = (0<<WGM33) | (1<<WGM32) | (1<<CS31) | (1<<CS30);
+    TCCR3A = (0<<WGM31) | (0<<WGM30);
+
+    // 249 + 1 == 250 == 250 000 / 1000 =  (16 000 000 / 64) / 1000
+    OCR3A = 249;
+
+    // enable Timer 3 interrupts
+    TIMSK3 = (1<<OCIE3A);
+}
+
+void setupTimer() {
+    initTimer3();
+    stopTimer0();
+}
+#endif
+
 #if defined(__SAM3X8E__)
 extern "C" {
     // sysTicks will be triggered once per 1 ms
