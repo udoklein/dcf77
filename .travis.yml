@@ -1,0 +1,56 @@
+language: cpp
+
+env:
+  global:
+    - ARDUINO_PACKAGE_VERSION=1.8.2
+    - DISPLAY=:1.0
+    - PACKAGE_ID=arduino
+    - ARCH=avr
+
+  matrix:
+    - TARGET_BOARD=uno EXAMPLE=DCF77_Scope
+    - TARGET_BOARD=uno EXAMPLE=MB_Emulator
+    - TARGET_BOARD=uno EXAMPLE=Simple_Clock
+    - TARGET_BOARD=uno EXAMPLE=Simple_Clock_with_Timezone_Support
+    - TARGET_BOARD=uno EXAMPLE=Superfilter
+    - TARGET_BOARD=uno EXAMPLE=Swiss_Army_Debug_Helper
+    - TARGET_BOARD=uno EXAMPLE=The_Clock
+    - TARGET_BOARD=uno EXAMPLE=Time_Switch
+#    - TARGET_BOARD=uno EXAMPLE=Unit_Test
+
+    - TARGET_BOARD=diecimila:cpu=atmega328 EXAMPLE=DCF77_Scope
+    - TARGET_BOARD=diecimila:cpu=atmega328 EXAMPLE=MB_Emulator
+    - TARGET_BOARD=diecimila:cpu=atmega328 EXAMPLE=Simple_Clock
+    - TARGET_BOARD=diecimila:cpu=atmega328 EXAMPLE=Simple_Clock_with_Timezone_Support
+    - TARGET_BOARD=diecimila:cpu=atmega328 EXAMPLE=Superfilter
+    - TARGET_BOARD=diecimila:cpu=atmega328 EXAMPLE=Swiss_Army_Debug_Helper
+    - TARGET_BOARD=diecimila:cpu=atmega328 EXAMPLE=The_Clock
+    - TARGET_BOARD=diecimila:cpu=atmega328 EXAMPLE=Time_Switch
+#    - TARGET_BOARD=diecimila:cpu=atmega328 EXAMPLE=Unit_Test
+
+    - TARGET_BOARD=arduino_due_x ARCH=sam EXAMPLE=DCF77_Scope
+    - TARGET_BOARD=arduino_due_x ARCH=sam EXAMPLE=MB_Emulator
+    - TARGET_BOARD=arduino_due_x ARCH=sam EXAMPLE=Simple_Clock
+    - TARGET_BOARD=arduino_due_x ARCH=sam EXAMPLE=Simple_Clock_with_Timezone_Support
+    - TARGET_BOARD=arduino_due_x ARCH=sam EXAMPLE=Superfilter
+    - TARGET_BOARD=arduino_due_x ARCH=sam EXAMPLE=Swiss_Army_Debug_Helper
+    - TARGET_BOARD=arduino_due_x ARCH=sam EXAMPLE=The_Clock
+    - TARGET_BOARD=arduino_due_x ARCH=sam EXAMPLE=Time_Switch
+    - TARGET_BOARD=arduino_due_x ARCH=sam EXAMPLE=Unit_Test
+
+matrix:
+  allow_failures:
+    - env: TARGET_BOARD=uno EXAMPLE=Unit_Test
+    - env: TARGET_BOARD=diecimila:cpu=atmega328 EXAMPLE=Unit_Test
+
+install:
+  - wget -q -O- http://downloads.arduino.cc/arduino-$ARDUINO_PACKAGE_VERSION-linux64.tar.xz | unxz -c | tar -xf -
+  - mkdir -p ~/Arduino/libraries/
+  - ln -s $TRAVIS_BUILD_DIR ~/Arduino/libraries/
+  - $TRAVIS_BUILD_DIR/arduino-$ARDUINO_PACKAGE_VERSION/arduino --install-boards $PACKAGE_ID:$ARCH
+
+before_script:
+  - /sbin/start-stop-daemon --start --quiet --pidfile /tmp/xvfb_$TRAVIS_JOB_NUMBER.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :1 -ac -screen 0 1280x1024x16
+
+script:
+  - $TRAVIS_BUILD_DIR/arduino-$ARDUINO_PACKAGE_VERSION/arduino --verbose --verify --board $PACKAGE_ID:$ARCH:$TARGET_BOARD $TRAVIS_BUILD_DIR/examples/$EXAMPLE/$EXAMPLE.ino
