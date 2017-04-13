@@ -5500,8 +5500,8 @@ void test_Binning() {
         for (uint8_t idx=0; idx < number_of_bins; ++idx) {
             assert(F("setup wipes data"), bins.data[idx] == 0, bins.data[idx]);
         }
-        assert(F("setup clears max"), bins.max == 0, bins.max);
-        assert(F("setup clears max_index"), bins.max_index == number_of_bins+1, bins.max_index);
+        assert(F("setup clears max"), bins.signal_max == 0, bins.signal_max);
+        assert(F("setup clears max_index"), bins.signal_max_index == number_of_bins+1, bins.signal_max_index);
         assert(F("setup clears noise max"), bins.noise_max == 0, bins.noise_max);
     }
 
@@ -5528,18 +5528,18 @@ void test_Binning() {
 
         bins.data[0] = 1;
         bins.compute_max_index();
-        assert(F("compute max 0"), bins.max == 1 && bins.noise_max == 0 && bins.max_index == 0,
-                 bins.max, bins.max, bins.noise_max, bins.max_index);
+        assert(F("compute max 0"), bins.signal_max == 1 && bins.noise_max == 0 && bins.signal_max_index == 0,
+                 bins.signal_max, bins.signal_max, bins.noise_max, bins.signal_max_index);
 
         bins.data[number_of_bins-1] = 2;
         bins.compute_max_index();
-        assert(F("compute max 1"), bins.max == 2 && bins.noise_max == 1 && bins.max_index == number_of_bins-1,
-                 bins.max, bins.max, bins.noise_max, bins.max_index);
+        assert(F("compute max 1"), bins.signal_max == 2 && bins.noise_max == 1 && bins.signal_max_index == number_of_bins-1,
+                 bins.signal_max, bins.signal_max, bins.noise_max, bins.signal_max_index);
 
         bins.data[1] = 3;
         bins.compute_max_index();
-        assert(F("compute max 2"), bins.max == 3 && bins.noise_max == 2 && bins.max_index == 1,
-                 bins.max, bins.max, bins.noise_max, bins.max_index);
+        assert(F("compute max 2"), bins.signal_max == 3 && bins.noise_max == 2 && bins.signal_max_index == 1,
+                 bins.signal_max, bins.signal_max, bins.noise_max, bins.signal_max_index);
     }
 
     {   // get_time_value

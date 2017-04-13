@@ -284,13 +284,7 @@ void setupTimer() {
 #endif
 
 #if defined(__SAM3X8E__)
-extern "C" {
-    // sysTicks will be triggered once per 1 ms
-    int sysTickHook(void) {
-        process_one_sample();
-        return 0;
-    }
-}
-
+// Systick hook implementation moved to systick_hook.cpp
+// in order to fix compiler issue.
 void setupTimer() {}
 #endif
