@@ -1,5 +1,6 @@
 # dcf77 library
 
+[![GitHub license](https://img.shields.io/badge/license-AGPL-blue.svg)](https://raw.githubusercontent.com/udoklein/dcf77/master/LICENSE)
 
 Noise resilent DCF77 decoder library for Arduino.
 

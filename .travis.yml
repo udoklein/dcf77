@@ -6,36 +6,34 @@ env:
     - DISPLAY=:1.0
 
   matrix:
-    - BOARD=uno SKETCH=examples/DCF77_Scope/DCF77_Scope.ino
-    - BOARD=uno SKETCH=examples/MB_Emulator/MB_Emulator.ino
-    - BOARD=uno SKETCH=examples/Simple_Clock/Simple_Clock.ino
-    - BOARD=uno SKETCH=examples/Simple_Clock_with_Timezone_Support/Simple_Clock_with_Timezone_Support.ino
-    - BOARD=uno SKETCH=examples/Superfilter/Superfilter.ino
-    - BOARD=uno SKETCH=examples/Swiss_Army_Debug_Helper/Swiss_Army_Debug_Helper.ino
-    - BOARD=uno SKETCH=examples/The_Clock/The_Clock.ino
-    - BOARD=uno SKETCH=examples/Time_Switch/Time_Switch.ino
-    - BOARD=uno SKETCH=examples/Unit_Test/Unit_Test.ino
-
-    - BOARD=diecimila:cpu=atmega168 SKETCH=examples/DCF77_Scope/DCF77_Scope.ino
-    - BOARD=diecimila:cpu=atmega168 SKETCH=examples/MB_Emulator/MB_Emulator.ino
-    - BOARD=diecimila:cpu=atmega168 SKETCH=examples/Simple_Clock/Simple_Clock.ino
-    - BOARD=diecimila:cpu=atmega168 SKETCH=examples/Simple_Clock_with_Timezone_Support/Simple_Clock_with_Timezone_Support.ino
-    - BOARD=diecimila:cpu=atmega168 SKETCH=examples/Superfilter/Superfilter.ino
-    - BOARD=diecimila:cpu=atmega168 SKETCH=examples/Swiss_Army_Debug_Helper/Swiss_Army_Debug_Helper.ino
-    - BOARD=diecimila:cpu=atmega168 SKETCH=examples/The_Clock/The_Clock.ino
-    - BOARD=diecimila:cpu=atmega168 SKETCH=examples/Time_Switch/Time_Switch.ino
-    - BOARD=diecimila:cpu=atmega168 SKETCH=examples/Unit_Test/Unit_Test.ino
-
-matrix:
-  allow_failures:
-    - env: BOARD=uno SKETCH=examples/Unit_Test/Unit_Test.ino
-    - env: BOARD=diecimila:cpu=atmega168 SKETCH=examples/Unit_Test/Unit_Test.ino
+    - TARGET_BOARD=diecimila
+    - TARGET_BOARD=leonardo
+    - TARGET_BOARD=due
 
 before_script:
   - /sbin/start-stop-daemon --start --quiet --pidfile /tmp/xvfb_$TRAVIS_JOB_NUMBER.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :1 -ac -screen 0 1280x1024x16
   - wget -q -O- http://downloads.arduino.cc/arduino-$ARDUINO_PACKAGE_VERSION-linux64.tar.xz | unxz -c | tar -xf -
+
   - mkdir -p ~/Arduino/libraries/
   - ln -s $TRAVIS_BUILD_DIR ~/Arduino/libraries/
+  - $TRAVIS_BUILD_DIR/arduino-$ARDUINO_PACKAGE_VERSION/arduino --install-boards arduino:sam
+
+  - function log()            { RCODE="$1"; MSG="$2";                           if [ "$RCODE" -ne 0 ]; then echo "failure for $MSG" >> build_log.txt; return 1; else echo "success for $MSG" >> build_log.txt; fi; }
+  - function build_sketch()   { BOARD="$1"; SPEC=$2 EXAMPLE="$3";               $TRAVIS_BUILD_DIR/arduino-$ARDUINO_PACKAGE_VERSION/arduino --verbose --verify --board "$SPEC" $TRAVIS_BUILD_DIR/examples/$EXAMPLE/$EXAMPLE.INO; log "$?" "$BOARD $EXAMPLE"; }
+  - function build_on_match() { BOARD="$1"; SPEC=$2 PATTERN="$3"; EXAMPLE="$4"; if [[ "$BOARD" =~ $PATTERN ]]; then build_sketch "$BOARD" "$SPEC" "$EXAMPLE"; else echo "excluded $BOARD $EXAMPLE" >> build_log.txt; fi; }
+  - function diecimila() { build_on_match "diecimila" arduino:avr:diecimila:cpu=atmega328 "$1" "$2"; }
+  - function leonardo()  { build_on_match "leonardo"  arduino:avr:leonardo                "$1" "$2"; }
+  - function due()       { build_on_match "due"       arduino:sam:arduino_due_x           "$1" "$2"; }
 
 script:
-  - $TRAVIS_BUILD_DIR/arduino-$ARDUINO_PACKAGE_VERSION/arduino --verbose --verify --board arduino:avr:$BOARD $TRAVIS_BUILD_DIR/$SKETCH
+  - $TARGET_BOARD "diecimila|leonardo|due" "DCF77_Scope"
+  - $TARGET_BOARD "diecimila|leonardo|due" "MB_Emulator"
+  - $TARGET_BOARD "diecimila|leonardo|due" "Simple_Clock"
+  - $TARGET_BOARD "diecimila|leonardo|due" "Simple_Clock_with_Timezone_Support"
+  - $TARGET_BOARD "diecimila|leonardo|due" "Superfilter"
+  - $TARGET_BOARD "diecimila|leonardo|due" "Swiss_Army_Debug_Helper"
+  - $TARGET_BOARD "diecimila|leonardo|due" "The_Clock"
+  - $TARGET_BOARD "diecimila|leonardo"     "Time_Switch"
+  - $TARGET_BOARD "due"                    "Unit_Test"
+  - echo; echo "finished script for $TARGET_BOARD"
+  - cat build_log.txt
