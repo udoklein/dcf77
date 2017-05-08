@@ -1,0 +1,8 @@
+env = Environment(CCFLAGS = '-std=c++11 -g')
+
+main = env.Program( "main", [ "main.cpp" ] )
+
+run = Command( target = "dummy_file",
+               source = "./main",
+               action = "./main")
+Depends( run, main )

@@ -21,8 +21,8 @@
 
 
 #define DCF77_MAJOR_VERSION 3
-#define DCF77_MINOR_VERSION 1
-#define DCF77_PATCH_VERSION 5
+#define DCF77_MINOR_VERSION 2
+#define DCF77_PATCH_VERSION 0
 
 
 #include <stdint.h>
