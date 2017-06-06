@@ -85,6 +85,7 @@ namespace Timezone {
                 time.month = BCD::int_to_bcd(month);
             }
             time.day = BCD::int_to_bcd(day);
+            time.weekday.val = time.weekday.val<7 ? time.weekday.val+1 : time.weekday.val-6;
         }
 
         if (hour < 0) {
@@ -106,6 +107,7 @@ namespace Timezone {
                 day = days_per_month(time);
             }
             time.day = BCD::int_to_bcd(day);
+            time.weekday.val = time.weekday.val>1 ? time.weekday.val-1 : time.weekday.val+6;
         }
 
         time.hour = BCD::int_to_bcd(hour);
@@ -192,16 +194,23 @@ void loop() {
             case Clock::synced:  Serial.print(F("synced: ")); break;
             case Clock::locked:  Serial.print(F("locked: ")); break;
         }
-        Serial.print(' ');
 
-        Serial.print(F("20"));
+        switch (now.weekday.val) {
+            case 1: Serial.print(F("Monday   ")); break;
+            case 2: Serial.print(F("Tuesday  ")); break;
+            case 3: Serial.print(F("Wednesday")); break;
+            case 4: Serial.print(F("Thursday ")); break;
+            case 5: Serial.print(F("Friday   ")); break;
+            case 6: Serial.print(F("Saturday ")); break;
+            case 7: Serial.print(F("Sunday   ")); break;
+        }
+        Serial.print(F(" 20"));
         paddedPrint(now.year);
         Serial.print('-');
         paddedPrint(now.month);
         Serial.print('-');
         paddedPrint(now.day);
         Serial.print(' ');
-
         paddedPrint(now.hour);
         Serial.print(':');
         paddedPrint(now.minute);
