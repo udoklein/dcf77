@@ -22,7 +22,7 @@
 
 #define DCF77_MAJOR_VERSION 3
 #define DCF77_MINOR_VERSION 2
-#define DCF77_PATCH_VERSION 0
+#define DCF77_PATCH_VERSION 1
 
 
 #include <stdint.h>
@@ -1088,6 +1088,10 @@ namespace Internal {
             }
             void reduce(const uint8_t sampled_data) __attribute__ ((always_inline)){
                 sum += sampled_data;
+                // If we have an even number of samples we will always have a bias.
+                // Thus we duplicate the 5th sample in order to get rid of the bias.
+                // This improves noise tolerance significantly.
+                if (sample_count == 4) { sum += sampled_data; }
                 ++sample_count;
             }
             bool data_ready() const __attribute__ ((always_inline)) {
