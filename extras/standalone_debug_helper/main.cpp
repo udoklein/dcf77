@@ -450,9 +450,8 @@ namespace Scope {
 namespace Signal_Shaper {
     unsigned long startup_ms = 0;
     static std::mt19937_64 fade_prng(1);
-    static std::uniform_int_distribution<unsigned long> distribution_fade(Test_Setup::signal_shaper_parameters.fade_min_ms , Test_Setup::signal_shaper_parameters.fade_max_ms);
-    static std::uniform_int_distribution<unsigned long> distribution_gap(Test_Setup::signal_shaper_parameters.fade_min_gap_ms, Test_Setup::signal_shaper_parameters.fade_max_gap_ms);
-
+    static std::uniform_int_distribution<unsigned long> distribution_fade;
+    static std::uniform_int_distribution<unsigned long> distribution_gap;
 
     static bool is_gap = false;
     static unsigned long ms_to_go = 0;
@@ -467,6 +466,8 @@ namespace Signal_Shaper {
         ms_to_go = 0;
 
         fade_prng.seed(1);
+        distribution_fade = std::uniform_int_distribution<unsigned long>((unsigned long) Test_Setup::signal_shaper_parameters.fade_min_ms , (unsigned long)Test_Setup::signal_shaper_parameters.fade_max_ms);
+        distribution_gap = std::uniform_int_distribution<unsigned long>((unsigned long)Test_Setup::signal_shaper_parameters.fade_min_gap_ms, (unsigned long)Test_Setup::signal_shaper_parameters.fade_max_gap_ms);
         distribution_fade.reset();
         distribution_gap.reset();
 
