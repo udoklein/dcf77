@@ -635,6 +635,16 @@ namespace Parser {
     }
 }
 
+void print_clock_state() {
+    switch (DCF77_Clock::get_clock_state()) {
+        case Clock::useless:  Serial.print(F("useless:"));   break;
+        case Clock::dirty:    Serial.print(F("dirty:  "));   break;
+        case Clock::synced:   Serial.print(F("synced: "));   break;
+        case Clock::locked:   Serial.print(F("locked: "));   break;
+        case Clock::unlocked: Serial.print(F("unlocked: ")); break;
+    }
+}
+
 void sprintlnpp16m(int16_t pp16m) {
     Debug::sprintpp16m(pp16m);
     sprintln();
@@ -777,12 +787,8 @@ void loop() {
             Clock::time_t now;
             DCF77_Clock::get_current_time(now);
 
-            switch (DCF77_Clock::get_clock_state()) {
-                case Clock::useless: Serial.println(F("useless")); break;
-                case Clock::dirty:   Serial.println(F("dirty")); break;
-                case Clock::synced:  Serial.println(F("synced")); break;
-                case Clock::locked:  Serial.println(F("locked")); break;
-            }
+            print_clock_state();
+            Serial.println();
 
             Clock_Controller::Demodulator.debug_verbose();
             Serial.println();
@@ -803,12 +809,7 @@ void loop() {
                 DCF77_Clock::get_current_time(now);
 
                 if (now.month.val > 0) {
-                    switch (DCF77_Clock::get_clock_state()) {
-                        case Clock::useless: Serial.print(F("useless:")); break;
-                        case Clock::dirty:   Serial.print(F("dirty:  ")); break;
-                        case Clock::synced:  Serial.print(F("synced: ")); break;
-                        case Clock::locked:  Serial.print(F("locked: ")); break;
-                    }
+                    print_clock_state();
                     Serial.print(' ');
 
                     const int8_t target_timezone_offset =
