@@ -1240,9 +1240,9 @@ namespace Internal {  // DCF77_Encoder
         }
         sprint(second, DEC);
         if (uses_summertime) {
-            sprint(F(" MESZ "));
+            sprint(F(" CEST "));
         } else {
-            sprint(F(" MEZ "));
+            sprint(F(" CET "));
         }
         sprint(leap_second_scheduled);
         sprint(',');
