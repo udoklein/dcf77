@@ -22,7 +22,7 @@
 
 #define DCF77_MAJOR_VERSION 3
 #define DCF77_MINOR_VERSION 2
-#define DCF77_PATCH_VERSION 8
+#define DCF77_PATCH_VERSION 9
 
 
 #include <stdint.h>
@@ -571,7 +571,7 @@ namespace Internal {
             }
         }
 
-        template <typename data_type, typename noise_type, uint32_t number_of_bins>
+        template <typename data_type, typename noise_type, uint16_t number_of_bins>
         struct bins_t {
             typedef data_type data_t;
             typedef typename TMP::uval_t<number_of_bins>::type index_t;
@@ -741,10 +741,10 @@ namespace Internal {
         };
 
 
-        template <typename data_type, uint32_t number_of_bins>
+        template <typename data_type, uint16_t number_of_bins>
         struct Decoder : bins_t<data_type, data_type, number_of_bins> {
-            typedef typename bins_t<data_type, data_type, number_of_bins>::index_t index_t;
             typedef data_type data_t;
+            typedef typename bins_t<data_t, data_t, number_of_bins>::index_t index_t;
 
             void compute_max_index() {
                 this->noise_max = 0;
@@ -796,8 +796,14 @@ namespace Internal {
                 sprintln();
             }
 
-            template <typename signal_t, signal_t signal_max, uint8_t signal_bitno_offset, uint8_t significant_bits, bool with_parity>
-            void BCD_binning(const uint8_t bitno_with_offset, const signal_t signal) {
+            template <typename binning_t>
+            void BCD_binning(const uint8_t bitno_with_offset, const typename binning_t::signal_t signal) {
+                typedef typename binning_t::signal_t signal_t;
+                static const signal_t signal_max = binning_t::signal_max;
+                static const uint8_t signal_bitno_offset = binning_t::signal_bitno_offset;
+                static const uint8_t significant_bits = binning_t::significant_bits;
+                static const bool with_parity = binning_t::with_parity;
+
                 using namespace Arithmetic_Tools;
                 using namespace BCD;
 
@@ -865,7 +871,7 @@ namespace Internal {
         };
 
 
-        template <typename data_type, uint32_t number_of_bins>
+        template <typename data_type, uint16_t number_of_bins>
         struct Convoluter : bins_t<data_type, uint32_t, number_of_bins> {
             typedef typename bins_t<data_type, data_type, number_of_bins>::index_t index_t;
             typedef data_type data_t;
@@ -884,7 +890,7 @@ namespace Internal {
             }
         };
 
-        template <typename data_t, uint32_t number_of_bins>
+        template <typename data_t, uint16_t number_of_bins>
         struct Binner {
             typedef typename TMP::uval_t<number_of_bins>::type index_t;
 
@@ -1235,12 +1241,40 @@ namespace Internal {
         void debug();
     };
 
-    struct DCF77_Decade_Decoder : public Binning::Decoder<uint8_t, 10> {
+    struct DCF77_Decade_template_parameters {
+        struct decoder_t {
+            typedef uint8_t data_type;
+            enum  { number_of_bins = 10 };
+        };
+        struct BCD_binning_t {
+            typedef uint8_t signal_t;
+            enum { signal_max          =  1,
+                   signal_bitno_offset = 54,
+                   significant_bits    =  4 };
+            static const bool with_parity = false;
+        };
+    };
+    struct DCF77_Decade_Decoder : public Binning::Decoder<DCF77_Decade_template_parameters::decoder_t::data_type,
+                                                          DCF77_Decade_template_parameters::decoder_t::number_of_bins> {
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
-    struct DCF77_Year_Decoder : public Binning::Decoder<uint8_t, 10> {
+    struct DCF77_Year_template_parameters {
+        struct decoder_t {
+            typedef uint8_t data_type;
+            enum  { number_of_bins = 10 };
+        };
+        struct BCD_binning_t {
+            typedef uint8_t signal_t;
+            enum { signal_max          =  1,
+                   signal_bitno_offset = 50,
+                   significant_bits    =  4 };
+            static const bool with_parity = false;
+        };
+    };
+    struct DCF77_Year_Decoder : public Binning::Decoder<DCF77_Year_template_parameters::decoder_t::data_type,
+                                                        DCF77_Year_template_parameters::decoder_t::number_of_bins> {
         DCF77_Decade_Decoder Decade_Decoder;
 
         void advance_tick();
@@ -1254,32 +1288,109 @@ namespace Internal {
         void debug();
     };
 
-    struct DCF77_Month_Decoder : public Binning::Decoder<uint8_t, 12> {
+    struct DCF77_Month_template_parameters {
+        struct decoder_t {
+            typedef uint8_t data_type;
+            enum  { number_of_bins = 12 };
+        };
+        struct BCD_binning_t {
+            typedef uint8_t signal_t;
+            enum { signal_max          =  1,
+                   signal_bitno_offset = 45,
+                   significant_bits    =  6 };
+            static const bool with_parity = false;
+        };
+    };
+    struct DCF77_Month_Decoder : public Binning::Decoder<DCF77_Month_template_parameters::decoder_t::data_type,
+                                                         DCF77_Month_template_parameters::decoder_t::number_of_bins> {
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
-    struct DCF77_Weekday_Decoder : public Binning::Decoder<uint8_t, 7> {
+    struct DCF77_Weekday_template_parameters {
+        struct decoder_t {
+            typedef uint8_t data_type;
+            enum  { number_of_bins = 7 };
+        };
+        struct BCD_binning_t {
+            typedef uint8_t signal_t;
+            enum { signal_max          =  1,
+                   signal_bitno_offset = 42,
+                   significant_bits    =  3 };
+            static const bool with_parity = false;
+        };
+    };
+    struct DCF77_Weekday_Decoder : public Binning::Decoder<DCF77_Weekday_template_parameters::decoder_t::data_type,
+                                                           DCF77_Weekday_template_parameters::decoder_t::number_of_bins> {
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
-    struct DCF77_Day_Decoder : public Binning::Decoder<uint8_t, 31> {
+    struct DCF77_Day_template_parameters {
+        struct decoder_t {
+            typedef uint8_t data_type;
+            enum  { number_of_bins = 31 };
+        };
+        struct BCD_binning_t {
+            typedef uint8_t signal_t;
+            enum { signal_max          =  1,
+                   signal_bitno_offset = 36,
+                   significant_bits    =  6 };
+            static const bool with_parity = false;
+        };
+    };
+    struct DCF77_Day_Decoder : public Binning::Decoder<DCF77_Day_template_parameters::decoder_t::data_type,
+                                                       DCF77_Day_template_parameters::decoder_t::number_of_bins> {
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
-    struct DCF77_Hour_Decoder : public Binning::Decoder<uint8_t, 24> {
+    struct DCF77_Hour_template_parameters {
+        struct decoder_t {
+            typedef uint8_t data_type;
+            enum  { number_of_bins = 24 };
+        };
+        struct BCD_binning_t {
+            typedef uint8_t signal_t;
+            enum { signal_max          =  1,
+                   signal_bitno_offset = 29,
+                   significant_bits    =  6 };
+            static const bool with_parity = true;
+        };
+    };
+    struct DCF77_Hour_Decoder : public Binning::Decoder<DCF77_Hour_template_parameters::decoder_t::data_type,
+                                                        DCF77_Hour_template_parameters::decoder_t::number_of_bins> {
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
-    struct DCF77_Minute_Decoder : public Binning::Decoder<uint8_t, 60> {
+    struct DCF77_Minute_template_parameters {
+        struct decoder_t {
+            typedef uint8_t data_type;
+            enum  { number_of_bins = 60 };
+        };
+        struct BCD_binning_t {
+            typedef uint8_t signal_t;
+            enum { signal_max          =  1,
+                   signal_bitno_offset = 21,
+                   significant_bits     = 7 };
+            static const bool with_parity = true;
+        };
+    };
+    struct DCF77_Minute_Decoder : public Binning::Decoder<DCF77_Minute_template_parameters::decoder_t::data_type,
+                                                          DCF77_Minute_template_parameters::decoder_t::number_of_bins> {
         void process_tick(const uint8_t current_second, const uint8_t tick_value);
         void debug();
     };
 
-    struct DCF77_Second_Decoder : public Binning::Decoder<uint8_t, 60> {
+    struct DCF77_Second_template_parameters {
+        struct decoder_t {
+            typedef uint8_t data_type;
+            enum  { number_of_bins = 60 };
+        };
+    };
+    struct DCF77_Second_Decoder : public Binning::Decoder<DCF77_Second_template_parameters::decoder_t::data_type,
+                                                          DCF77_Second_template_parameters::decoder_t::number_of_bins> {
         static const uint8_t seconds_per_minute = 60;
 
         // threshold:

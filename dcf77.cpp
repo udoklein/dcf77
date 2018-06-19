@@ -247,19 +247,22 @@ namespace Internal {  // DCF77_Decade_Decoder
     */
 
     void DCF77_Decade_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 54, 4, false>(current_second, tick_value);
+        BCD_binning<DCF77_Decade_template_parameters::BCD_binning_t> (current_second, tick_value);
     }
 
     void DCF77_Decade_Decoder::debug() {
         sprint(F("Decade: "));
-        this->Binning::Decoder<uint8_t, 10>::debug();
+        this->Binning::Decoder<DCF77_Decade_template_parameters::decoder_t::data_type,
+                               DCF77_Decade_template_parameters::decoder_t::number_of_bins>::debug();
     }
 }
 
 namespace Internal { // DCF77_Year_Decoder
     void DCF77_Year_Decoder::advance_tick() {
-        Binning::Decoder<uint8_t, 10>::advance_tick();
-        if (Binning::Decoder<uint8_t, 10>::get_time_value().val == 0) {
+        Binning::Decoder<DCF77_Year_template_parameters::decoder_t::data_type,
+                         DCF77_Year_template_parameters::decoder_t::number_of_bins>::advance_tick();
+        if (Binning::Decoder<DCF77_Year_template_parameters::decoder_t::data_type,
+                             DCF77_Year_template_parameters::decoder_t::number_of_bins>::get_time_value().val == 0) {
             Decade_Decoder.advance_tick();
         }
     }
@@ -282,13 +285,14 @@ namespace Internal { // DCF77_Year_Decoder
     }
 */
     void DCF77_Year_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 50, 4, false>(current_second, tick_value);
+        BCD_binning<DCF77_Year_template_parameters::BCD_binning_t> (current_second, tick_value);
 
         Decade_Decoder.process_tick(current_second, tick_value);
     }
 
     void DCF77_Year_Decoder::get_quality(lock_quality_t &lock_quality) {
-        Binning::Decoder<uint8_t, 10>::get_quality(lock_quality);
+        Binning::Decoder<DCF77_Year_template_parameters::decoder_t::data_type,
+                         DCF77_Year_template_parameters::decoder_t::number_of_bins>::get_quality(lock_quality);
 
         lock_quality_t decade_lock_quality;
         Decade_Decoder.get_quality(decade_lock_quality);
@@ -301,13 +305,15 @@ namespace Internal { // DCF77_Year_Decoder
     }
 
     uint8_t DCF77_Year_Decoder::get_quality_factor() {
-        const uint8_t qf_years = Binning::Decoder<uint8_t, 10>::get_quality_factor();
+        const uint8_t qf_years = Binning::Decoder<DCF77_Year_template_parameters::decoder_t::data_type,
+                                                  DCF77_Year_template_parameters::decoder_t::number_of_bins>::get_quality_factor();
         const uint8_t qf_decades = Decade_Decoder.get_quality_factor();
         return min(qf_years, qf_decades);
     }
 
     BCD::bcd_t DCF77_Year_Decoder::get_time_value() {
-        BCD::bcd_t year = Binning::Decoder<uint8_t, 10>::get_time_value();
+        BCD::bcd_t year = Binning::Decoder<DCF77_Year_template_parameters::decoder_t::data_type,
+                                           DCF77_Year_template_parameters::decoder_t::number_of_bins>::get_time_value();
         BCD::bcd_t decade = Decade_Decoder.get_time_value();
 
         if (year.val == 0xff || decade.val == 0xff) {
@@ -321,19 +327,22 @@ namespace Internal { // DCF77_Year_Decoder
     }
 
     void DCF77_Year_Decoder::setup() {
-        Binning::Decoder<uint8_t, 10>::setup();
+        Binning::Decoder<DCF77_Year_template_parameters::decoder_t::data_type,
+                         DCF77_Year_template_parameters::decoder_t::number_of_bins>::setup();
         Decade_Decoder.setup();
     }
 
     void DCF77_Year_Decoder::dump() {
-        Binning::Decoder<uint8_t, 10>::dump();
+        Binning::Decoder<DCF77_Year_template_parameters::decoder_t::data_type,
+                         DCF77_Year_template_parameters::decoder_t::number_of_bins>::dump();
         sprint('/');
         Decade_Decoder.dump();
     }
 
     void DCF77_Year_Decoder::debug() {
         sprint(F("Year: "));
-        Binning::Decoder<uint8_t, 10>::debug();
+        Binning::Decoder<DCF77_Year_template_parameters::decoder_t::data_type,
+                         DCF77_Year_template_parameters::decoder_t::number_of_bins>::debug();
         Decade_Decoder.debug();
     }
 }
@@ -356,12 +365,13 @@ namespace Internal {  // DCF77_Month_Decoder
     }
 */
     void DCF77_Month_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 45, 5, false>(current_second, tick_value);
+        BCD_binning<DCF77_Month_template_parameters::BCD_binning_t> (current_second, tick_value);
     }
 
     void DCF77_Month_Decoder::debug() {
         sprint(F("Month: "));
-        Binning::Decoder<uint8_t, 12>::debug();
+        Binning::Decoder<DCF77_Month_template_parameters::decoder_t::data_type,
+                         DCF77_Month_template_parameters::decoder_t::number_of_bins>::debug();
     }
 }
 
@@ -381,12 +391,13 @@ namespace Internal {  // DCF77_Weekday_Decoder
 */
 
     void DCF77_Weekday_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 42, 3, false>(current_second, tick_value);
+        BCD_binning<DCF77_Weekday_template_parameters::BCD_binning_t> (current_second, tick_value);
 }
 
     void DCF77_Weekday_Decoder::debug() {
         sprint(F("Weekday: "));
-        Binning::Decoder<uint8_t, 7>::debug();
+        Binning::Decoder<DCF77_Weekday_template_parameters::decoder_t::data_type,
+                         DCF77_Weekday_template_parameters::decoder_t::number_of_bins>::debug();
     }
 }
 
@@ -409,12 +420,13 @@ namespace Internal {  // DCF77_Day_Decoder
 */
 
     void DCF77_Day_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 36, 6, false>(current_second, tick_value);
+        BCD_binning<DCF77_Day_template_parameters::BCD_binning_t> (current_second, tick_value);
     }
 
     void DCF77_Day_Decoder::debug() {
         sprint(F("Day: "));
-        Binning::Decoder<uint8_t, 31> ::debug();
+        Binning::Decoder<DCF77_Day_template_parameters::decoder_t::data_type,
+                         DCF77_Day_template_parameters::decoder_t::number_of_bins>::debug();
     }
 }
 
@@ -438,12 +450,13 @@ namespace Internal {  // DCF77_Hour_Decoder
     }
 */
     void DCF77_Hour_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 29, 6, true>(current_second, tick_value);
+        BCD_binning<DCF77_Hour_template_parameters::BCD_binning_t> (current_second, tick_value);
     }
 
     void DCF77_Hour_Decoder::debug() {
         sprint(F("Hour: "));
-        Binning::Decoder<uint8_t, 24>::debug();
+        Binning::Decoder<DCF77_Hour_template_parameters::decoder_t::data_type,
+                         DCF77_Hour_template_parameters::decoder_t::number_of_bins>::debug();
     }
 }
 
@@ -469,18 +482,20 @@ namespace Internal {  // DCF77_Minute_Decoder
 */
 
     void DCF77_Minute_Decoder::process_tick(const uint8_t current_second, const uint8_t tick_value) {
-        BCD_binning<uint8_t, 1, 21, 7, true>(current_second, tick_value);
+        BCD_binning<DCF77_Minute_template_parameters::BCD_binning_t> (current_second, tick_value);
     }
 
     void DCF77_Minute_Decoder::debug() {
         sprint(F("Minute: "));
-        Binning::Decoder<uint8_t, 60>::debug();
+        Binning::Decoder<DCF77_Minute_template_parameters::decoder_t::data_type,
+                         DCF77_Minute_template_parameters::decoder_t::number_of_bins>::debug();
     }
 }
 
 namespace Internal {  // DCF77_Second_Decoder
     void DCF77_Second_Decoder::setup() {
-        Binning::Decoder<uint8_t, 60>::setup();
+        Binning::Decoder<DCF77_Second_template_parameters::decoder_t::data_type,
+                         DCF77_Second_template_parameters::decoder_t::number_of_bins>::setup();
         prediction_match = convolution_binning_not_ready;
         buffered_match = convolution_binning_not_ready;
     }
@@ -712,7 +727,8 @@ namespace Internal {  // DCF77_Second_Decoder
             sprint(F("second: "));
             sprint(get_time_value(), DEC);
             sprint(F(" Sync mark index "));
-            Binning::Decoder<uint8_t, 60>::debug();
+            Binning::Decoder<DCF77_Second_template_parameters::decoder_t::data_type,
+                             DCF77_Second_template_parameters::decoder_t::number_of_bins>::debug();
             sprint(F("Prediction Match: "));
             sprintln(prediction_match, DEC);
             sprintln();
