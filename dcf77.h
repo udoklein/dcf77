@@ -22,7 +22,7 @@
 
 #define DCF77_MAJOR_VERSION 3
 #define DCF77_MINOR_VERSION 2
-#define DCF77_PATCH_VERSION 9
+#define DCF77_PATCH_VERSION 10
 
 
 #include <stdint.h>
@@ -1839,6 +1839,8 @@ namespace Internal {
     struct DCF77_Clock_Controller {
         typedef Configuration_T Configuration;
 
+        static const uint8_t unacceptable_minute_decoder_quality = 4;
+
         static DCF77_Second_Decoder  Second_Decoder;
         static DCF77_Minute_Decoder  Minute_Decoder;
         static DCF77_Hour_Decoder    Hour_Decoder;
@@ -2036,13 +2038,15 @@ namespace Internal {
                 }
 
                 const uint8_t tick_value = (tick_data == long_tick || tick_data == undefined)? 1: 0;
-                Flag_Decoder.process_tick(now.second, tick_value);
                 Minute_Decoder.process_tick(now.second, tick_value);
-                Hour_Decoder.process_tick(now.second, tick_value);
-                Weekday_Decoder.process_tick(now.second, tick_value);
-                Day_Decoder.process_tick(now.second, tick_value);
-                Month_Decoder.process_tick(now.second, tick_value);
-                Year_Decoder.process_tick(now.second, tick_value);
+                if (Minute_Decoder.get_quality_factor() > unacceptable_minute_decoder_quality) {
+                    Flag_Decoder.process_tick(now.second, tick_value);
+                    Hour_Decoder.process_tick(now.second, tick_value);
+                    Weekday_Decoder.process_tick(now.second, tick_value);
+                    Day_Decoder.process_tick(now.second, tick_value);
+                    Month_Decoder.process_tick(now.second, tick_value);
+                    Year_Decoder.process_tick(now.second, tick_value);
+                }
             }
         }
 
