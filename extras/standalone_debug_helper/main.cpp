@@ -84,8 +84,15 @@ struct Configuration_lores_T {
     // this is the actuall sample rate
     static const ticks_per_second_t phase_lock_resolution = centi_seconds;
 
-    enum quality_factor_sync_threshold_t : uint8_t { aggressive = 1, standard = 2, conservative = 3 };
-    static const uint8_t quality_factor_sync_threshold = aggressive;
+    enum quality_factor_sync_threshold_t : uint8_t { aggressive_sync = 1, standard_sync = 2, conservative_sync = 3 };
+    static const uint8_t quality_factor_sync_threshold = quality_factor_sync_threshold_t::aggressive_sync;
+
+    enum demodulator_quality_threshold_t : uint8_t { standard_quality = 10 };
+    static const uint8_t unacceptable_demodulator_quality = demodulator_quality_threshold_t::standard_quality;
+
+    enum controller_minute_quality_threshold_t : uint8_t { aggressive_minute_quality = 0, standard_minute_quality = 2, conservative_minute_quality = 4, paranoid_minute_quality = 6 };
+    static const uint8_t unacceptable_minute_decoder_quality = controller_minute_quality_threshold_t::aggressive_minute_quality;
+
 };
 
 struct Configuration_hires_T {
@@ -93,8 +100,14 @@ struct Configuration_hires_T {
     // this is the actuall sample rate
     static const ticks_per_second_t phase_lock_resolution = milli_seconds;
 
-    enum quality_factor_sync_threshold_t : uint8_t { aggressive = 1, standard = 2, conservative = 3 };
-    static const uint8_t quality_factor_sync_threshold = aggressive;
+    enum quality_factor_sync_threshold_t : uint8_t { aggressive_sync = 1, standard_sync = 2, conservative_sync = 3 };
+    static const uint8_t quality_factor_sync_threshold = quality_factor_sync_threshold_t::aggressive_sync;
+
+    enum demodulator_quality_threshold_t : uint8_t { standard_quality = 10 };
+    static const uint8_t unacceptable_demodulator_quality = demodulator_quality_threshold_t::standard_quality;
+
+    enum controller_minute_quality_threshold_t : uint8_t { aggressive_minute_quality = 0, standard_minute_quality = 2, conservative_minute_quality = 4, paranoid_minute_quality = 6 };
+    static const uint8_t unacceptable_minute_decoder_quality = controller_minute_quality_threshold_t::aggressive_minute_quality;
 };
 
 FakeSerial Serial;

@@ -22,7 +22,7 @@
 
 #define DCF77_MAJOR_VERSION 3
 #define DCF77_MINOR_VERSION 2
-#define DCF77_PATCH_VERSION 10
+#define DCF77_PATCH_VERSION 11
 
 
 #include <stdint.h>
@@ -99,8 +99,15 @@ struct Configuration {
     static const ticks_per_second_t phase_lock_resolution = high_phase_lock_resolution ? milli_seconds
                                                                                        : centi_seconds;
 
-    enum quality_factor_sync_threshold_t : uint8_t { aggressive = 1, standard = 2, conservative = 3 };
-    static const uint8_t quality_factor_sync_threshold = aggressive;
+    enum quality_factor_sync_threshold_t : uint8_t { aggressive_sync = 1, standard_sync = 2, conservative_sync = 3 };
+    static const uint8_t quality_factor_sync_threshold = quality_factor_sync_threshold_t::aggressive_sync;
+
+
+    enum demodulator_quality_threshold_t : uint8_t { standard_quality = 10 };
+    static const uint8_t unacceptable_demodulator_quality = demodulator_quality_threshold_t::standard_quality;
+
+    enum controller_minute_quality_threshold_t : uint8_t { aggressive_minute_quality = 0, standard_minute_quality = 2, conservative_minute_quality = 4, paranoid_minute_quality = 6 };
+    static const uint8_t unacceptable_minute_decoder_quality = controller_minute_quality_threshold_t::aggressive_minute_quality;
 
 
     // Set to true if the library is deployed in a device runnning at room temperature.
@@ -1429,8 +1436,6 @@ namespace Internal {
         // --> It is pointless to handle this.
         uint32_t unlocked_seconds;
 
-        static const uint8_t unacceptable_demodulator_quality = 10;
-
         void setup() {
             clock_state = Clock::useless;
             tick = 0;
@@ -1490,7 +1495,7 @@ namespace Internal {
                     }
 
                     case Clock::locked: {
-                        if (Clock_Controller::get_demodulator_quality_factor() > unacceptable_demodulator_quality) {
+                        if (Clock_Controller::get_demodulator_quality_factor() > Configuration::unacceptable_demodulator_quality) {
                             // If we are not sure about leap seconds we will skip
                             // them. Worst case is that we miss a leap second due
                             // to noisy reception. This may happen at most once a
@@ -1514,7 +1519,7 @@ namespace Internal {
                     }
 
                     case Clock::unlocked: {
-                        if (Clock_Controller::get_demodulator_quality_factor() > unacceptable_demodulator_quality) {
+                        if (Clock_Controller::get_demodulator_quality_factor() > Configuration::unacceptable_demodulator_quality) {
                             // Quality is somewhat reasonable again, check
                             // if the phase offset is in reasonable bounds.
                             if (200 < tick && tick < 800) {
@@ -1839,8 +1844,6 @@ namespace Internal {
     struct DCF77_Clock_Controller {
         typedef Configuration_T Configuration;
 
-        static const uint8_t unacceptable_minute_decoder_quality = 4;
-
         static DCF77_Second_Decoder  Second_Decoder;
         static DCF77_Minute_Decoder  Minute_Decoder;
         static DCF77_Hour_Decoder    Hour_Decoder;
@@ -2039,7 +2042,7 @@ namespace Internal {
 
                 const uint8_t tick_value = (tick_data == long_tick || tick_data == undefined)? 1: 0;
                 Minute_Decoder.process_tick(now.second, tick_value);
-                if (Minute_Decoder.get_quality_factor() > unacceptable_minute_decoder_quality) {
+                if (Minute_Decoder.get_quality_factor() > Configuration::unacceptable_minute_decoder_quality) {
                     Flag_Decoder.process_tick(now.second, tick_value);
                     Hour_Decoder.process_tick(now.second, tick_value);
                     Weekday_Decoder.process_tick(now.second, tick_value);
