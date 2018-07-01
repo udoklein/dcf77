@@ -938,12 +938,18 @@ void boilerplate(int argc, char** argv) {
 
     println();
     println(F("Configuration"));
-    print(F("  high_phase_lock_resolution:    "));
+    print(F("  high_phase_lock_resolution:          "));
     println(Test_Setup::high_phase_lock_resolution);
-    print(F("  phase_lock_resolution:         "));
+    print(F("  phase_lock_resolution:               "));
     println(Configuration::phase_lock_resolution);
-    print(F("  quality_factor_sync_threshold: "));
+    print(F("  quality_factor_sync_threshold:       "));
     println((int)Configuration::quality_factor_sync_threshold);
+    print(F("  unacceptable_demodulator_quality:    "));
+    println((int)Configuration::unacceptable_demodulator_quality);
+    print(F("  unacceptable_minute_decoder_quality: "));
+    println((int)Configuration::unacceptable_minute_decoder_quality);
+    print(F("  has_stable_ambient_temperature:      "));
+    println(Configuration::has_stable_ambient_temperature);
 
     println();
     println(F("synthesizer parameters"));

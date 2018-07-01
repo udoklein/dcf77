@@ -698,9 +698,13 @@ void setup() {
     Serial.println();
     Serial.print(F("Phase_lock_resolution [ticks per second]: "));
     Serial.println(Configuration::phase_lock_resolution);
-    Serial.print(F("Quality Factor Sync Threshold:  "));
+    Serial.print(F("Quality Factor Sync Threshold:            "));
     Serial.println((int)Configuration::quality_factor_sync_threshold);
-    Serial.print(F("Has stable ambient temperature: "));
+    Serial.print(F("Unacceptable Demodulator Quality:         "));
+    Serial.println((int)Configuration::unacceptable_demodulator_quality);
+    Serial.print(F("Unacceptable Minute Decoder Quality:      "));
+    Serial.println((int)Configuration::unacceptable_minute_decoder_quality);
+    Serial.print(F("Has stable ambient temperature:           "));
     Serial.println(Configuration::has_stable_ambient_temperature);
 
     Serial.println();

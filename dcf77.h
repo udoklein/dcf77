@@ -22,7 +22,7 @@
 
 #define DCF77_MAJOR_VERSION 3
 #define DCF77_MINOR_VERSION 2
-#define DCF77_PATCH_VERSION 11
+#define DCF77_PATCH_VERSION 12
 
 
 #include <stdint.h>
@@ -92,7 +92,7 @@ struct Configuration {
     #endif
 
     static const bool high_phase_lock_resolution = want_high_phase_lock_resolution &&
-                                                      has_lots_of_memory;
+                                                   has_lots_of_memory;
 
     enum ticks_per_second_t : uint16_t { centi_seconds = 100, milli_seconds = 1000 };
     // this is the actuall sample rate
