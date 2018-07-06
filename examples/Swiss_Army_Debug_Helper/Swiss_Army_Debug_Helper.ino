@@ -706,6 +706,10 @@ void setup() {
     Serial.println((int)Configuration::unacceptable_minute_decoder_quality);
     Serial.print(F("Has stable ambient temperature:           "));
     Serial.println(Configuration::has_stable_ambient_temperature);
+    Serial.print(F("Maximum frequency adjustment [pp16m]:     "));
+    Serial.println((int)Configuration::maximum_total_frequency_adjustment);
+
+
 
     Serial.println();
     Serial.print(F("Sample Pin:      ")); Serial.println(dcf77_sample_pin);
@@ -717,13 +721,6 @@ void setup() {
     Serial.print(F("Monitor Led:     ")); Serial.println(LED_Display::dcf77_monitor_led);
 
     Serial.println();
-    #if defined(_AVR_EEPROM_H_)
-    int8_t  adjust_steps;
-    int16_t adjust;
-    DCF77_Frequency_Control::read_from_eeprom(adjust_steps, adjust);
-    Serial.print(F("EE Precision:    ")); sprintlnpp16m(adjust_steps);
-    Serial.print(F("EE Freq. Adjust: ")); sprintlnpp16m(adjust);
-    #endif
     Serial.print(F("Freq. Adjust:    ")); sprintlnpp16m(Generic_1_kHz_Generator::read_adjustment());
 
     Serial.println();

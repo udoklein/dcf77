@@ -21,8 +21,8 @@
 
 
 #define DCF77_MAJOR_VERSION 3
-#define DCF77_MINOR_VERSION 2
-#define DCF77_PATCH_VERSION 12
+#define DCF77_MINOR_VERSION 3
+#define DCF77_PATCH_VERSION 0
 
 
 #include <stdint.h>
@@ -109,6 +109,15 @@ struct Configuration {
     enum controller_minute_quality_threshold_t : uint8_t { aggressive_minute_quality = 0, standard_minute_quality = 2, conservative_minute_quality = 4, paranoid_minute_quality = 6 };
     static const uint8_t unacceptable_minute_decoder_quality = controller_minute_quality_threshold_t::aggressive_minute_quality;
 
+    // Standard implies your crystal is within 125 ppm of its target frequency.
+    // Typical crystal oscillators are within +/- 100 pm of their nominal frequency.
+    // Thus "standard" should be fine if your oscillator is good.
+    // If you oscillator is worse then set the configuration to "extended."
+    // However keep in mind that it would be best to have an oscillator which
+    // is within spec.
+    // Unit is "parts per 16 million" [pp16m] ( or 1 Hz @ 16 MHz)
+    enum frequency_tuning_range : uint16_t { standard = 2000, extended = 6400 };
+    static const int16_t maximum_total_frequency_adjustment = frequency_tuning_range::standard;
 
     // Set to true if the library is deployed in a device runnning at room temperature.
     // Set to false if the library is deployed in a device operating outdoors.
@@ -514,8 +523,6 @@ namespace Internal {
     };
 
     #if defined(__AVR__)
-        #include <avr/eeprom.h>
-
         #include <util/atomic.h>
         #define CRITICAL_SECTION ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
 
@@ -1655,20 +1662,9 @@ namespace Internal {
         // 5334 * 6000 = 32 004 000 // 534 * 60000 = 32 040 000
         static const uint16_t tau_max_minutes = 32000000uL / (60uL * Configuration::phase_lock_resolution) + 1;
 
-        // 6400 Hz@16MHz = 400 ppm = 64 pp16m
-        // Theoretically higher values would be possible.
-        // However if a tuning beyond 400 ppm is necessary then there is something
-        // fundamentally wrong with the oscillator. Actually 100 ppm is already
-        // poor for a crystal oscillator.
-        // Unit of measure is parts per 16 Million [pp16m]
-        static const int16_t max_total_adjust = 6400;
+        static const int16_t max_total_adjust = Configuration::maximum_total_frequency_adjustment;
 
         static volatile int8_t confirmed_precision;
-
-        #if defined(_AVR_EEPROM_H_)
-        // indicator if data may be persisted to EEPROM
-        static volatile bool data_pending;
-        #endif
 
         // 2*tau_max = 32 004 000 ticks = 5333 minutes or 533 minutes depending on the resolution
         //  60 000 centi seconds = 10 minutes
@@ -1795,22 +1791,8 @@ namespace Internal {
         static void setup();
 
 
-        #if defined(__AVR__)
-        // Offset for writing to EEPROM / reading from EEPROM
-        // this is necesarry if other libraries also want to
-        // use EEPROM.
-        // This library will use 8 bytes of EEPROM
-        // 2 bytes for an identifier and 3 bytes for storing the
-        // data redundantantly.
-        static const uint16_t eeprom_base = 0x00;
-        static void persist_to_eeprom(const int8_t adjust_steps, const int16_t adjust);  // this is slow, do not call during interrupt handling
-
-        static void read_from_eeprom(int8_t &precision, int16_t &adjust);
-        static void auto_persist();  // this is slow and messes with the interrupt flag, do not call during interrupt handling
-        #endif
         // get the adjust step that was used for the last adjustment
         //   if there was no adjustment or if the frequency adjustment was poor it will return 0
-        //   if the adjustment was from eeprom it will return the negative value of the persisted adjust step
         static int8_t get_confirmed_precision();
     };
 
@@ -1855,9 +1837,6 @@ namespace Internal {
 
         // blocking, will unblock at the start of the second
         static void get_current_time(DCF77_Encoder &now) {
-            #if defined(_AVR_EEPROM_H_)
-            auto_persist();
-            #endif
             Local_Clock.get_current_time(now);
         }
 
@@ -2239,13 +2218,6 @@ namespace Internal {
         static void read_current_time(DCF77_Encoder &now) {
             Local_Clock.read_current_time(now);
         }
-
-        #if defined(_AVR_EEPROM_H_)
-        // this is slow and messes with the interrupt flag, do not call during interrupt handling
-        static void auto_persist() {
-            Frequency_Control::auto_persist();
-        }
-        #endif
 
         static void setup() {
             Demodulator.setup();

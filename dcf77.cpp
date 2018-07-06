@@ -1442,12 +1442,6 @@ namespace DCF77_Clock {
         Clock_Controller::set_output_handler(output_handler);
     }
 
-    #if defined(__AVR__)
-    void auto_persist() {
-        Clock_Controller::auto_persist();
-    }
-    #endif
-
     void convert_time(const DCF77_Encoder &current_time, Clock::time_t &now) {
         now.second                    = BCD::int_to_bcd(current_time.second);
         now.minute                    = current_time.minute;
@@ -1525,8 +1519,6 @@ namespace Internal {  // DCF77_Frequency_Control
     volatile int8_t DCF77_Frequency_Control::confirmed_precision = 0;
     // get the adjust step that was used for the last adjustment
     //   if there was no adjustment or if the phase drift was poor it will return 0
-    //   if the adjustment was from eeprom it will return the negative value of the
-    //   persisted adjust step
     int8_t DCF77_Frequency_Control::get_confirmed_precision() {
         return confirmed_precision;
     }
@@ -1610,10 +1602,6 @@ namespace Internal {  // DCF77_Frequency_Control
                         adjust();
                         DCF77_Clock_Controller<Configuration, DCF77_Frequency_Control>::on_tuned_clock();
 
-                        #if defined(_AVR_EEPROM_H_)
-                        // enqueue write to eeprom
-                        data_pending = true;
-                        #endif
                         // restart calibration next second
                         calibration_state.running = false;
                     }
@@ -1641,95 +1629,8 @@ namespace Internal {  // DCF77_Frequency_Control
         deviation_tracker.process_tick();
     }
 
-    #if defined(_AVR_EEPROM_H_)
-    volatile bool DCF77_Frequency_Control::data_pending = false;
-
-    // ID constants to see if EEPROM has already something stored
-    static const char ID_u = 'u';
-    static const char ID_k = 'k';
-    void DCF77_Frequency_Control::persist_to_eeprom(const int8_t precision, const int16_t adjust) {
-        // this is slow, do not call during interrupt handling
-        uint16_t eeprom = DCF77_Frequency_Control::eeprom_base;
-        eeprom_write_byte((uint8_t *)(eeprom++), ID_u);
-        eeprom_write_byte((uint8_t *)(eeprom++), ID_k);
-        eeprom_write_byte((uint8_t *)(eeprom++), (uint8_t) precision);
-        eeprom_write_byte((uint8_t *)(eeprom++), (uint8_t) precision);
-        eeprom_write_word((uint16_t *)eeprom, (uint16_t) adjust);
-        eeprom += 2;
-        eeprom_write_word((uint16_t *)eeprom, (uint16_t) adjust);
-    }
-
-    void DCF77_Frequency_Control::read_from_eeprom(int8_t &precision, int16_t &adjust) {
-        uint16_t eeprom = DCF77_Frequency_Control::eeprom_base;
-        if (eeprom_read_byte((const uint8_t *)(eeprom++)) == ID_u &&
-            eeprom_read_byte((const uint8_t *)(eeprom++)) == ID_k) {
-            uint8_t ee_precision = eeprom_read_byte((const uint8_t *)(eeprom++));
-            if (ee_precision == eeprom_read_byte((const uint8_t *)(eeprom++))) {
-                const uint16_t ee_adjust = eeprom_read_word((const uint16_t *)eeprom);
-                eeprom += 2;
-                if (ee_adjust == eeprom_read_word((const uint16_t *)eeprom)) {
-                    precision = (int8_t) ee_precision;
-                    adjust = (int16_t) ee_adjust;
-                    return;
-                }
-            }
-        }
-        precision = 0;
-        adjust = 0;
-    }
-
-    // do not call during ISRs
-    void DCF77_Frequency_Control::auto_persist() {
-        // ensure that reading of data can not be interrupted!!
-        // do not write EEPROM while interrupts are blocked
-        int16_t adjust;
-        int8_t  precision;
-        CRITICAL_SECTION {
-            if (data_pending && confirmed_precision > 0) {
-                precision = confirmed_precision;
-                adjust = Generic_1_kHz_Generator::read_adjustment();
-            } else {
-                data_pending = false;
-            }
-        }
-        if (data_pending) {
-            int16_t ee_adjust;
-            int8_t  ee_precision;
-            read_from_eeprom(ee_precision, ee_adjust);
-
-            if (Configuration::has_stable_ambient_temperature
-                  ? (confirmed_precision < abs(ee_precision) ||        // - precision better than it used to be
-                     ( abs(ee_precision) < 8 &&                        // - precision better than 8 Hz or 0.5 ppm @ 16 MHz
-                       abs(ee_adjust-adjust) > 8 )           ||        //   deviation worse than 8 Hz (thus 16 Hz or 1 ppm)
-                     ( confirmed_precision == 1 &&                     // - It takes more than 1 day to arrive at 1 Hz precision
-                       abs(ee_adjust-adjust) > 0 ) )                   //   thus it acceptable to always write
-                  : abs(ee_adjust-adjust) > 8 )                        // - instable ambient temperature and deviation worse than 0.5 ppm
-            {
-                int16_t new_ee_adjust;
-                int8_t  new_ee_precision;
-                CRITICAL_SECTION {
-                    new_ee_adjust    = adjust;
-                    new_ee_precision = precision;
-                }
-                persist_to_eeprom(new_ee_precision, new_ee_adjust);
-            }
-            data_pending = false;
-        }
-    }
-
-    void DCF77_Frequency_Control::setup() {
-        int16_t adjust;
-        int8_t ee_precision;
-
-        read_from_eeprom(ee_precision, adjust);
-        if (ee_precision) {
-            DCF77_Clock_Controller<Configuration, DCF77_Frequency_Control>::on_tuned_clock();
-        }
-        Generic_1_kHz_Generator::adjust(adjust);
-    }
-    #else
     void DCF77_Frequency_Control::setup() {}
-    #endif
+
     void DCF77_Frequency_Control::debug() {
         using namespace Debug;
         sprintln(F("confirmed_precision ?? adjustment, deviation, elapsed"));
@@ -1757,9 +1658,6 @@ namespace Internal {  // DCF77_Frequency_Control
     void DCF77_No_Frequency_Control::qualify_calibration() {}
     void DCF77_No_Frequency_Control::unqualify_calibration() {}
     void DCF77_No_Frequency_Control::setup() {}
-    #if defined(__AVR__)
-    void DCF77_No_Frequency_Control::auto_persist() {}
-    #endif
 }
 
 namespace Internal {

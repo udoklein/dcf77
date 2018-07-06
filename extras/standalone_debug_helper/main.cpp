@@ -92,7 +92,6 @@ struct Configuration_lores_T {
 
     enum controller_minute_quality_threshold_t : uint8_t { aggressive_minute_quality = 0, standard_minute_quality = 2, conservative_minute_quality = 4, paranoid_minute_quality = 6 };
     static const uint8_t unacceptable_minute_decoder_quality = controller_minute_quality_threshold_t::aggressive_minute_quality;
-
 };
 
 struct Configuration_hires_T {
@@ -950,6 +949,8 @@ void boilerplate(int argc, char** argv) {
     println((int)Configuration::unacceptable_minute_decoder_quality);
     print(F("  has_stable_ambient_temperature:      "));
     println(Configuration::has_stable_ambient_temperature);
+    print(F("Maximum frequency adjustment [pp16m]:  "));
+    print((int)Configuration::maximum_total_frequency_adjustment);
 
     println();
     println(F("synthesizer parameters"));
