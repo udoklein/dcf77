@@ -22,7 +22,7 @@
 
 #define DCF77_MAJOR_VERSION 3
 #define DCF77_MINOR_VERSION 3
-#define DCF77_PATCH_VERSION 0
+#define DCF77_PATCH_VERSION 1
 
 
 #include <stdint.h>
@@ -2223,6 +2223,7 @@ namespace Internal {
             Demodulator.setup();
             phase_lost_event_handler();
             Frequency_Control::setup();
+            Local_Clock.setup();
         }
 
         static void debug() {
