@@ -22,7 +22,7 @@
 
 #define DCF77_MAJOR_VERSION 3
 #define DCF77_MINOR_VERSION 3
-#define DCF77_PATCH_VERSION 1
+#define DCF77_PATCH_VERSION 2
 
 
 #include <stdint.h>
@@ -2115,9 +2115,6 @@ namespace Internal {
                 now.year    = Year_Decoder.get_time_value();
 
                 BCD::bcd_t weekday = now.get_bcd_weekday();
-                if (weekday.val == 0) {
-                    weekday.val = 7;
-                }
                 if (now.weekday.val == weekday.val) {
                     date_quality_factor += 1;
                 } else if (date_quality_factor <= weekday_quality_factor) {
