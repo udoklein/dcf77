@@ -557,8 +557,13 @@ namespace Internal {
     #endif
 
 
-    #define sprint(...)   Serial.print(__VA_ARGS__)
-    #define sprintln(...) Serial.println(__VA_ARGS__)
+    #if defined(__STM32F1__)
+        #define sprint(...)   Serial1.print(__VA_ARGS__)
+        #define sprintln(...) Serial1.println(__VA_ARGS__)
+    #else
+        #define sprint(...)   Serial.print(__VA_ARGS__)
+        #define sprintln(...) Serial.println(__VA_ARGS__)
+    #endif
 
     namespace Binning {
         template <typename uint_t>

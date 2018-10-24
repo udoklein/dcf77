@@ -15,6 +15,8 @@
 //
 //  You should have received a copy of the GNU General Public License
 //  along with this program. If not, see http://www.gnu.org/licenses/
+#include "Arduino.h"
+void process_one_sample();
 
 namespace {
     // workaround to convince the Arduino IDE to not mess with the macros
@@ -38,6 +40,17 @@ uint8_t ledpin(const int8_t led) {
     return led;
 }
 
+#elif defined(__STM32F1__)
+const uint8_t dcf77_sample_pin = PB6;
+const uint8_t dcf77_inverted_samples = 1; //output from HKW EM6 DCF 3V
+const uint8_t lower_output_led = PB7;
+const uint8_t upper_output_led = PB7;
+const WiringPinMode dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
+const uint8_t dcf77_monitor_led = PC13;
+uint8_t ledpin(const int8_t led) {
+    return led;
+}
+
 #else
 // Pin settings for Arduino Due
 // No support for "analog samples", the "analog samples".
@@ -55,6 +68,8 @@ const uint8_t dcf77_monitor_led = 18;
 const uint8_t lower_output_led = 2;
 const uint8_t upper_output_led = 17;
 
+
+
 uint8_t ledpin(const int8_t led) {
     return led<14? led: led+(54-14);
 }
@@ -63,7 +78,7 @@ uint8_t ledpin(const int8_t led) {
 // some pins in a way that fits some specific DCF77 module.
 
 // As an example these are pin settings for the "Pollin Module".
-#define dedicated_module_support 1
+// #define dedicated_module_support 1
 const uint8_t gnd_pin  = 51;
 const uint8_t pon_pin  = 51;  // connect pon to ground !!!
 const uint8_t data_pin = dcf77_sample_pin;  // 53
@@ -103,9 +118,19 @@ const uint8_t vcc_pin  = 49;
     #error Unsupported controller architecture
 #endif
 
+#ifdef __STM32F1__
+#define sprint(...)   Serial1.print(__VA_ARGS__)
+#define sprintln(...) Serial1.println(__VA_ARGS__)
+#else
 #define sprint(...)   Serial.print(__VA_ARGS__)
 #define sprintln(...) Serial.println(__VA_ARGS__)
+#endif
 
+#if defined(__STM32F1__)
+void setupTimer() {
+    systick_attach_callback(process_one_sample);
+}
+#endif
 
 uint8_t sample_input_pin() {
     const uint8_t sampled_data =
@@ -164,7 +189,11 @@ void process_one_sample() {
 }
 
 void setup() {
+    #ifdef __STM32F1__
+    Serial1.begin(115200);
+    #else
     Serial.begin(115200);
+    #endif
     sprintln();
 
     #if defined(dedicated_module_support)

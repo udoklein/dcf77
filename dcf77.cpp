@@ -1845,6 +1845,38 @@ namespace Internal {
             Clock_Controller::process_1_kHz_tick_data(the_input_provider());
         }
         #endif
+
+        #if defined(__STM32F1__)
+        void setup(const Clock::input_provider_t input_provider) {
+            // no need to init systicks timer as it runs @1kHz anyway
+            the_input_provider = input_provider;
+            systick_attach_callback(isr_handler);
+        }
+        const uint32_t ticks_per_ms = SYSTICK_RELOAD_VAL/1000;
+        const uint32_t ticks_per_us = ticks_per_ms/1000;
+        // 1000 / 16 000 000 = 1 / 16 000
+        const uint16_t inverse_timer_resolution = 16000;
+
+        void isr_handler() {
+            cumulated_phase_deviation += adjust_pp16m;
+            if (cumulated_phase_deviation >= inverse_timer_resolution) {
+                cumulated_phase_deviation -= inverse_timer_resolution;
+                // cumulated drift exceeds microsecond)
+                // drop microsecond step to realign
+                systick_init(ticks_per_ms - ticks_per_us);
+            } else if (cumulated_phase_deviation <= -inverse_timer_resolution) {
+                cumulated_phase_deviation += inverse_timer_resolution;
+                // cumulated drift exceeds 1 microsecond
+                // insert one microsecond to realign
+                systick_init(ticks_per_ms + ticks_per_us);
+            } else {
+                systick_init(ticks_per_ms);
+            }
+
+            Clock_Controller::process_1_kHz_tick_data(the_input_provider());
+        }
+        #endif
+
     }
 }
 
