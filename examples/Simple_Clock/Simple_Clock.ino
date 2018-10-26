@@ -31,6 +31,14 @@ const uint8_t dcf77_monitor_led = 18;  // A4 == d18
 uint8_t ledpin(const uint8_t led) {
     return led;
 }
+#elif defined(__STM32F1__)
+const uint8_t dcf77_sample_pin = PB6;
+const uint8_t dcf77_inverted_samples = 1; //output from HKW EM6 DCF 3V
+const WiringPinMode dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
+const uint8_t dcf77_monitor_led = PC13;
+uint8_t ledpin(const int8_t led) {
+    return led;
+}
 #else
 const uint8_t dcf77_sample_pin = 53;
 const uint8_t dcf77_inverted_samples = 0;
@@ -61,22 +69,26 @@ uint8_t sample_input_pin() {
 void setup() {
     using namespace Clock;
 
+#if defined(__STM32F1__)
+    Serial1.begin(115200);
+#else
     Serial.begin(9600);
-    Serial.println();
-    Serial.println(F("Simple DCF77 Clock V3.1.1"));
-    Serial.println(F("(c) Udo Klein 2016"));
-    Serial.println(F("www.blinkenlight.net"));
-    Serial.println();
-    Serial.print(F("Sample Pin:      ")); Serial.println(dcf77_sample_pin);
-    Serial.print(F("Sample Pin Mode: ")); Serial.println(dcf77_pin_mode);
-    Serial.print(F("Inverted Mode:   ")); Serial.println(dcf77_inverted_samples);
+#endif
+    sprintln();
+    sprintln(F("Simple DCF77 Clock V3.1.1"));
+    sprintln(F("(c) Udo Klein 2016"));
+    sprintln(F("www.blinkenlight.net"));
+    sprintln();
+    sprint(F("Sample Pin:      ")); sprintln(dcf77_sample_pin);
+    sprint(F("Sample Pin Mode: ")); sprintln(dcf77_pin_mode);
+    sprint(F("Inverted Mode:   ")); sprintln(dcf77_inverted_samples);
     #if defined(__AVR__)
-    Serial.print(F("Analog Mode:     ")); Serial.println(dcf77_analog_samples);
+    sprint(F("Analog Mode:     ")); sprintln(dcf77_analog_samples);
     #endif
-    Serial.print(F("Monitor Pin:     ")); Serial.println(ledpin(dcf77_monitor_led));
-    Serial.println();
-    Serial.println();
-    Serial.println(F("Initializing..."));
+    sprint(F("Monitor Pin:     ")); sprintln(ledpin(dcf77_monitor_led));
+    sprintln();
+    sprintln();
+    sprintln(F("Initializing..."));
 
     pinMode(ledpin(dcf77_monitor_led), OUTPUT);
     pinMode(dcf77_sample_pin, dcf77_pin_mode);
@@ -98,18 +110,18 @@ void setup() {
 
         // render one dot per second while initializing
         static uint8_t count = 0;
-        Serial.print('.');
+        sprint('.');
         ++count;
         if (count == 60) {
             count = 0;
-            Serial.println();
+            sprintln();
         }
     }
 }
 
 void paddedPrint(BCD::bcd_t n) {
-    Serial.print(n.digit.hi);
-    Serial.print(n.digit.lo);
+    sprint(n.digit.hi);
+    sprint(n.digit.lo);
 }
 
 void loop() {
@@ -118,29 +130,29 @@ void loop() {
     DCF77_Clock::get_current_time(now);
     if (now.month.val > 0) {
         switch (DCF77_Clock::get_clock_state()) {
-            case Clock::useless: Serial.print(F("useless ")); break;
-            case Clock::dirty:   Serial.print(F("dirty:  ")); break;
-            case Clock::synced:  Serial.print(F("synced: ")); break;
-            case Clock::locked:  Serial.print(F("locked: ")); break;
+            case Clock::useless: sprint(F("useless ")); break;
+            case Clock::dirty:   sprint(F("dirty:  ")); break;
+            case Clock::synced:  sprint(F("synced: ")); break;
+            case Clock::locked:  sprint(F("locked: ")); break;
         }
-        Serial.print(' ');
+        sprint(' ');
 
-        Serial.print(F("20"));
+        sprint(F("20"));
         paddedPrint(now.year);
-        Serial.print('-');
+        sprint('-');
         paddedPrint(now.month);
-        Serial.print('-');
+        sprint('-');
         paddedPrint(now.day);
-        Serial.print(' ');
+        sprint(' ');
 
         paddedPrint(now.hour);
-        Serial.print(':');
+        sprint(':');
         paddedPrint(now.minute);
-        Serial.print(':');
+        sprint(':');
         paddedPrint(now.second);
 
-        Serial.print("+0");
-        Serial.print(now.uses_summertime? '2': '1');
-        Serial.println();
+        sprint("+0");
+        sprint(now.uses_summertime? '2': '1');
+        sprintln();
     }
 }
