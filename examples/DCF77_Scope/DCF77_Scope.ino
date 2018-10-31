@@ -119,11 +119,11 @@ const uint8_t vcc_pin  = 49;
 #endif
 
 #ifdef __STM32F1__
-#define sprint(...)   Serial1.print(__VA_ARGS__)
-#define sprintln(...) Serial1.println(__VA_ARGS__)
+    #define sprint(...)   Serial1.print(__VA_ARGS__)
+    #define sprintln(...) Serial1.println(__VA_ARGS__)
 #else
-#define sprint(...)   Serial.print(__VA_ARGS__)
-#define sprintln(...) Serial.println(__VA_ARGS__)
+    #define sprint(...)   Serial.print(__VA_ARGS__)
+    #define sprintln(...) Serial.println(__VA_ARGS__)
 #endif
 
 #if defined(__STM32F1__)

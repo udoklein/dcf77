@@ -69,11 +69,11 @@ uint8_t sample_input_pin() {
 void setup() {
     using namespace Clock;
 
-#if defined(__STM32F1__)
+    #if defined(__STM32F1__)
     Serial1.begin(115200);
-#else
+    #else
     Serial.begin(9600);
-#endif
+    #endif
     sprintln();
     sprintln(F("Simple DCF77 Clock V3.1.1"));
     sprintln(F("(c) Udo Klein 2016"));

@@ -1876,7 +1876,6 @@ namespace Internal {
             Clock_Controller::process_1_kHz_tick_data(the_input_provider());
         }
         #endif
-
     }
 }
 
