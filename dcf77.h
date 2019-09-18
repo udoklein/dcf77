@@ -22,7 +22,7 @@
 
 #define DCF77_MAJOR_VERSION 3
 #define DCF77_MINOR_VERSION 3
-#define DCF77_PATCH_VERSION 3
+#define DCF77_PATCH_VERSION 4
 
 
 #include <stdint.h>
@@ -2237,6 +2237,10 @@ namespace Internal {
             now.day     = Day_Decoder.get_time_value();
             now.month   = Month_Decoder.get_time_value();
             now.year    = Year_Decoder.get_time_value();
+            now.uses_summertime           = Flag_Decoder.get_uses_summertime();
+            now.leap_second_scheduled     = Flag_Decoder.get_leap_second_scheduled();
+            now.timezone_change_scheduled = Flag_Decoder.get_timezone_change_scheduled();
+
             now.debug();
 
             clock_quality_t clock_quality;
