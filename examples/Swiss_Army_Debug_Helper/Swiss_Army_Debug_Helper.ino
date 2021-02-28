@@ -46,24 +46,25 @@ uint8_t ledpin(const uint8_t led) {
 
 #else
 // different pin settings for ARM based arduino
-const uint8_t dcf77_sample_pin = 53;
 const uint8_t dcf77_inverted_samples = 0;
 
 // const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
 const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
 
+// Pollin module
+#define POLLIN_DCF77 1
 const uint8_t pon_pin  = 51; // connect pon to ground !!!
 const uint8_t data_pin = 53;
 const uint8_t gnd_pin  = 51;
 const uint8_t vcc_pin  = 49;
+
+const uint8_t dcf77_sample_pin = data_pin;
 
 const uint8_t dcf77_monitor_led = 19;
 
 uint8_t ledpin(const uint8_t led) {
     return led<14? led: led+(54-14);
 }
-
-#define POLLIN_DCF77 1
 #endif
 
 
@@ -637,11 +638,11 @@ namespace Parser {
 
 void print_clock_state() {
     switch (DCF77_Clock::get_clock_state()) {
-        case Clock::useless:  Serial.print(F("useless:  "));   break;
-        case Clock::dirty:    Serial.print(F("dirty:    "));   break;
-        case Clock::free:     Serial.print(F("free:     "));   break;
-        case Clock::synced:   Serial.print(F("synced:   "));   break;
-        case Clock::locked:   Serial.print(F("locked:   "));   break;
+        case Clock::useless:  Serial.print(F("useless:  ")); break;
+        case Clock::dirty:    Serial.print(F("dirty:    ")); break;
+        case Clock::free:     Serial.print(F("free:     ")); break;
+        case Clock::synced:   Serial.print(F("synced:   ")); break;
+        case Clock::locked:   Serial.print(F("locked:   ")); break;
         case Clock::unlocked: Serial.print(F("unlocked: ")); break;
     }
 }

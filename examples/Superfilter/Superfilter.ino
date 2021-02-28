@@ -17,22 +17,43 @@
 //  along with this program. If not, see http://www.gnu.org/licenses/
 
 #include <dcf77.h>
-/*
-const uint8_t pon_pin  = 51; // connect pon to ground !!!
-const uint8_t data_pin = 19;
-const uint8_t gnd_pin  = 51;
-const uint8_t vcc_pin  = 49;
-*/
-const uint8_t dcf77_analog_samples = false;
+
+#if defined(__AVR__)
+
+// which pin the clock module is connected to
 const uint8_t dcf77_analog_sample_pin = 5;
 const uint8_t dcf77_sample_pin = 19; // A5
-const uint8_t dcf77_inverted_samples = 0;
 // const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
 const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
 
-#if defined(__AVR__)
+const uint8_t dcf77_inverted_samples = 0;
+
+// The Blinkenlighty requires 1 this because the input
+// pins are loaded with LEDs. All others should prefer
+// setting this to 0 as this reduces interrupt contention.
+const uint8_t dcf77_analog_samples = 0;
+
+const uint8_t dcf77_monitor_led = 18;
+
 #define ledpin(led) (led)
 #else
+// different pin settings for ARM based arduino
+const uint8_t dcf77_inverted_samples = 0;
+
+// const uint8_t dcf77_pin_mode = INPUT;  // disable internal pull up
+const uint8_t dcf77_pin_mode = INPUT_PULLUP;  // enable internal pull up
+
+// Pollin module
+#define POLLIN_DCF77 1
+const uint8_t pon_pin  = 51; // connect pon to ground !!!
+const uint8_t data_pin = 53;
+const uint8_t gnd_pin  = 51;
+const uint8_t vcc_pin  = 49;
+
+const uint8_t dcf77_sample_pin = data_pin;
+
+const uint8_t dcf77_monitor_led = 19;
+
 #define ledpin(led) (led<14? led: led+(54-14))
 #endif
 
@@ -176,7 +197,6 @@ uint8_t sample_input_pin() {
 
 
 
-
 void output_handler(const Clock::time_t &decoded_time) {
     // reset ms_counter for 1 Hz ticks
     ms_counter = 0;
@@ -302,14 +322,26 @@ void setup() {
     output_splash_screen();
     setup_pins();
     setup_clock();
-/*
+
+#if defined(POLLIN_DCF77)
     pinMode(gnd_pin, OUTPUT);
     digitalWrite(gnd_pin, LOW);
     pinMode(pon_pin, OUTPUT);
     digitalWrite(pon_pin, LOW);
     pinMode(vcc_pin, OUTPUT);
     digitalWrite(vcc_pin, HIGH);
-    */
+#endif
+}
+
+void print_clock_state() {
+    switch (DCF77_Clock::get_clock_state()) {
+        case Clock::useless:  Serial.print(F("useless:  ")); break;
+        case Clock::dirty:    Serial.print(F("dirty:    ")); break;
+        case Clock::free:     Serial.print(F("free:     ")); break;
+        case Clock::unlocked: Serial.print(F("unlocked: ")); break;
+        case Clock::locked:   Serial.print(F("locked:   ")); break;
+        case Clock::synced:   Serial.print(F("synced:   ")); break;
+    }
 }
 
 void loop() {
@@ -324,7 +356,7 @@ void loop() {
         Serial.println();
     }
 
-    Serial.print(DCF77_Clock::get_clock_state());
+    print_clock_state();
     Serial.print(' ');
     DCF77_Clock::debug();
 

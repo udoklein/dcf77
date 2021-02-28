@@ -22,7 +22,7 @@
 
 #define DCF77_MAJOR_VERSION 3
 #define DCF77_MINOR_VERSION 3
-#define DCF77_PATCH_VERSION 4
+#define DCF77_PATCH_VERSION 6
 
 
 #include <stdint.h>
@@ -103,11 +103,12 @@ struct Configuration {
     static const uint8_t quality_factor_sync_threshold = quality_factor_sync_threshold_t::aggressive_sync;
 
 
-    enum demodulator_quality_threshold_t : uint8_t { standard_quality = 10 };
-    static const uint8_t unacceptable_demodulator_quality = demodulator_quality_threshold_t::standard_quality;
+    enum demodulator_quality_threshold_t : uint8_t { agressive_quality = 10, standard_quality = 50, conservative_quality = 100, very_conservative_quality = 200 };
+    static const uint8_t unacceptable_demodulator_quality = demodulator_quality_threshold_t::conservative_quality;
 
     enum controller_minute_quality_threshold_t : uint8_t { aggressive_minute_quality = 0, standard_minute_quality = 2, conservative_minute_quality = 4, paranoid_minute_quality = 6 };
     static const uint8_t unacceptable_minute_decoder_quality = controller_minute_quality_threshold_t::aggressive_minute_quality;
+
 
     // Standard implies your crystal is within 125 ppm of its target frequency.
     // Typical crystal oscillators are within +/- 100 pm of their nominal frequency.
@@ -981,6 +982,10 @@ namespace Internal {
         // This is because otherwise we will not be able to deal with noise
         // in any reasonable way.
         uint16_t N = ticks_to_drift_one_tick / bin_count;
+        void reset_has_tuned_clock() {
+            // will be called once crystal is tuned to better than 1 ppm.
+            N = ticks_to_drift_one_tick / bin_count;
+        }
         void set_has_tuned_clock() {
             // will be called once crystal is tuned to better than 1 ppm.
             N = tuned_ticks_to_drift_one_tick / bin_count;
@@ -2154,6 +2159,13 @@ namespace Internal {
         static void phase_lost_event_handler() {
             // do not reset frequency control as a reset would also reset
             // the current value for the measurement period length
+
+            // Increase the bandwidth of the demodulator to its default.
+            // In case the frequency control somehow messed up the
+            // crystal frequency (e.g. due to noise) this hopefully allows
+            // the clock to recover from this situation.
+            Demodulator.reset_has_tuned_clock();
+
             Second_Decoder.setup();
             Minute_Decoder.setup();
             Hour_Decoder.setup();
