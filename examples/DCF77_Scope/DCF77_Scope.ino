@@ -167,7 +167,7 @@ const uint8_t bins                = 100;
 const uint8_t samples_per_bin     = samples_per_second / bins;
 
 volatile uint8_t gbin[bins];
-boolean samples_pending = false;
+volatile boolean samples_pending = false;
 
 void process_one_sample() {
     static uint8_t sbin[bins];
