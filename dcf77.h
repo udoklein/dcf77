@@ -140,7 +140,7 @@ struct Configuration {
     // static const bool has_stable_ambient_temperature = false; // outdoor deployment
 };
 
-// https://gcc.gnu.org/onlinedocs/cpp/Stringification.html
+// https://gcc.gnu.org/onlinedocs/cpp/Stringizing.html
 #define EXPAND_THEN_STRINGIFY(s) STRINGIFY(s)
 #define STRINGIFY(s) #s
 #define DCF77_VERSION_STRING (EXPAND_THEN_STRINGIFY(DCF77_MAJOR_VERSION) "." \
