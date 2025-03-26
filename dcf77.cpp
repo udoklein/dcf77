@@ -1876,6 +1876,42 @@ namespace Internal {
             Clock_Controller::process_1_kHz_tick_data(the_input_provider());
         }
         #endif
+
+        #if defined(ARDUINO_ARCH_ESP32)
+        hw_timer_t *timer = NULL;
+        const uint32_t GPTimer_freq = 16000000;
+        const uint32_t ticks_per_ms = GPTimer_freq/1000;
+        const uint32_t ticks_per_us = ticks_per_ms/1000;
+        
+        void setup(const Clock::input_provider_t input_provider) {
+            timer = timerBegin(GPTimer_freq); // Set timer frequency to 16Mhz, 0,0625 us tick
+            timerAttachInterrupt(timer, &isr_handler);
+            timerAlarm(timer, ticks_per_ms, true, 0);  // call isr_handler function onetime after 1000 microseconds
+            the_input_provider = input_provider;
+        }
+
+        // 1000 / 16 000 000 = 1 / 16 000
+        const uint16_t inverse_timer_resolution = 16000;
+
+        void ARDUINO_ISR_ATTR isr_handler() {
+            cumulated_phase_deviation += adjust_pp16m;
+            if (cumulated_phase_deviation >= inverse_timer_resolution) {
+                cumulated_phase_deviation -= inverse_timer_resolution;
+                // cumulated drift exceeds microsecond)
+                // drop microsecond step to realign
+                timerAlarm(timer, ticks_per_ms - ticks_per_us, true, 0);
+            } else if (cumulated_phase_deviation <= -inverse_timer_resolution) {
+                cumulated_phase_deviation += inverse_timer_resolution;
+                // cumulated drift exceeds 1 microsecond
+                // insert one microsecond to realign
+                timerAlarm(timer, ticks_per_ms + ticks_per_us, true, 0);
+            } else {
+                timerAlarm(timer, ticks_per_ms, true, 0);
+            }
+          
+            Clock_Controller::process_1_kHz_tick_data(the_input_provider());        
+        }
+        #endif
     }
 }
 
