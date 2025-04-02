@@ -553,6 +553,23 @@ namespace Internal {
         #warning Compiling for Linux target only supported for unit test purposes. Only fake support for atomic sections. Please take care.
 
         #define CRITICAL_SECTION for (int __n = 1; __n; __n = 0)
+    #elif defined(ARDUINO_ARCH_RP2040)
+        #warning Experimental RP2040 support using Earle F. Philhower, III Raspberry Pi Pico Arduino core
+
+        static inline critical_section_t* __disable_irq(void){
+                critical_section_t global_critical_section;
+                critical_section_enter_blocking(&global_critical_section);
+                return(&global_critical_section); 
+        }
+
+        static inline void __restore_irq(const critical_section_t *global_critical_section) {
+            if (!(*global_critical_section)) {
+                        force_load_store();
+                        critical_section_exit(&global_critical_section);
+            }
+        }
+
+        #define CRITICAL_SECTION for (critical_section_t global_critical_section __attribute__((__cleanup__(__restore_irq))) = __disable_irq(), __n = 1; __n; __n = 0)
     #else
         #error Unsupported controller architecture
     #endif
@@ -1135,8 +1152,14 @@ namespace Internal {
         struct dummy_stage {
             void    reset()                            const {}
             void    reduce(const uint8_t sampled_data) const {}
+            #if defined(ARDUINO_ARCH_RP2040)
+            //Workaround to [-Werror=return-type] 
+            bool    data_ready()                       const {return 0;}
+            uint8_t avg()                              const {return 0;}
+            #else
             bool    data_ready()                       const {}
             uint8_t avg()                              const {}
+            #endif
         };
 
         static const bool requires_averages = samples_per_bin > 1;

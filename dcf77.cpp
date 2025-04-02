@@ -1683,6 +1683,10 @@ namespace Internal {
                 const int16_t pp16m = adjust_pp16m;
                 return pp16m;
             }
+            #if defined(ARDUINO_ARCH_RP2040)
+            //Workaround to [-Werror=return-type] 
+            return 0;
+            #endif
         }
 
         #if defined(__AVR_ATmega168__)  || \
@@ -1874,6 +1878,58 @@ namespace Internal {
             }
 
             Clock_Controller::process_1_kHz_tick_data(the_input_provider());
+        }
+        #endif
+
+        #if defined(ARDUINO_ARCH_RP2040)
+
+        //This implementation uses the low-level hardware timer of the RP2040 microcontroller. 
+        //The hardware timer has a fixed tick rate of 1 MHz (one tick per microsecond). 
+        //We are using an interrupt every 1 ms. More advanced features and higher resolution 
+        //could be achieved by programming the PIO for signal sampling, streaming samples to DMA, 
+        //and using DMA interrupts for computation. In the current state of the art, 
+        //this might be an overkill, but we are open-minded about this approach.
+
+        const uint32_t timer_freq = 1000000; //not a frequency but ticks in 1s, fixed
+        const uint32_t ticks_per_ms = timer_freq/1000;
+        const uint32_t ticks_per_us = ticks_per_ms/1000;
+
+        #define ALARM_NUM 0
+        #define ALARM_IRQ timer_hardware_alarm_get_irq_num(timer_hw, ALARM_NUM)
+
+        static void alarm_in_us_arm(uint32_t delay_us) {
+            hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
+            uint64_t target = timer_hw->timerawl + delay_us;
+            timer_hw->alarm[ALARM_NUM] = (uint32_t) target;
+        }
+
+        void setup(const Clock::input_provider_t input_provider) {
+            hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
+            irq_set_exclusive_handler(ALARM_IRQ, isr_handler);
+            irq_set_enabled(ALARM_IRQ, true);    
+            alarm_in_us_arm(ticks_per_ms);
+            the_input_provider = input_provider;
+        }
+
+        // 1000 / 1 000 000 = 1 / 1 000
+        const uint16_t inverse_timer_resolution = 1000;
+
+        void __not_in_flash_func(isr_handler)() {
+            cumulated_phase_deviation += adjust_pp16m;
+            if (cumulated_phase_deviation >= inverse_timer_resolution) {
+                cumulated_phase_deviation -= inverse_timer_resolution;
+                // cumulated drift exceeds microsecond)
+                // drop microsecond step to realign
+                alarm_in_us_arm(ticks_per_ms - ticks_per_us);
+            } else if (cumulated_phase_deviation <= -inverse_timer_resolution) {
+                cumulated_phase_deviation += inverse_timer_resolution;
+                // cumulated drift exceeds 1 microsecond
+                alarm_in_us_arm(ticks_per_ms + ticks_per_us);
+            } else {
+                alarm_in_us_arm(ticks_per_ms);
+            }
+
+            Clock_Controller::process_1_kHz_tick_data(the_input_provider());   
         }
         #endif
     }
